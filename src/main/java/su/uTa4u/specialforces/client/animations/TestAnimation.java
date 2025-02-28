@@ -8,7 +8,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
-public class TestEntityAnimation {
+public class TestAnimation {
     public static final AnimationDefinition IDLE;
 
     static {

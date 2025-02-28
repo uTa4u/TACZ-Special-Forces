@@ -1,0 +1,15 @@
+{
+  "item.taczsf.swat_spawn_egg": "Яйцо призыва спецназовца",
+
+
+
+  "entity.taczsf.commander": "Командир",
+  "entity.taczsf.assaulter": "Штурмовик",
+  "entity.taczsf.grenadier": "Гренадер",
+  "entity.taczsf.bulldozer": "Бульдозер",
+  "entity.taczsf.engineer": "Инженер",
+  "entity.taczsf.sniper": "Снайпер",
+  "entity.taczsf.medic": "Медик",
+  "entity.taczsf.scout": "Разведчик",
+  "entity.taczsf.spy": "Шпион"
+}

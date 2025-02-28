@@ -80,6 +80,7 @@ dependencies {
     implementation fg.deobf("curse.maven:timeless-and-classics-zero-1028108:${tacz_version}")
 
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+    runtimeOnly fg.deobf("curse.maven:retro-damage-indicators-1003431:5268035")
 }
 
 tasks.named('processResources', ProcessResources).configure {

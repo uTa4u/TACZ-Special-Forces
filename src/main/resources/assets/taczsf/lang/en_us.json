@@ -1,0 +1,15 @@
+{
+  "item.taczsf.swat_spawn_egg": "SWAT Spawn Egg",
+
+
+
+  "entity.taczsf.commander": "Commander",
+  "entity.taczsf.assaulter": "Assaulter",
+  "entity.taczsf.grenadier": "Grenadier",
+  "entity.taczsf.bulldozer": "Bulldozer",
+  "entity.taczsf.engineer": "Engineer",
+  "entity.taczsf.sniper": "Sniper",
+  "entity.taczsf.medic": "Medic",
+  "entity.taczsf.scout": "Scout",
+  "entity.taczsf.spy": "Spy"
+}

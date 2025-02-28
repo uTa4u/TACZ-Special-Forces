@@ -14,7 +14,7 @@ public class ModEntities {
     public static final RegistryObject<EntityType<TestEntity>> TEST_ENTITY;
 
     static {
-        ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, SpecialForces.MODID);
+        ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, SpecialForces.MOD_ID);
 
         TEST_ENTITY = registerEntityType("test_entity", TestEntity::new);
     }
