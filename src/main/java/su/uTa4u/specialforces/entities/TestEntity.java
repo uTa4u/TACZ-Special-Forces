@@ -7,14 +7,17 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.level.Level;
+import su.uTa4u.specialforces.Specialty;
 
 public class TestEntity extends PathfinderMob {
 
+    private final Specialty SPECIALTY;
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
     protected TestEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
+        this.SPECIALTY = Specialty.getRandomSpecialty();
     }
 
     @Override
@@ -58,5 +61,9 @@ public class TestEntity extends PathfinderMob {
                 .add(Attributes.MAX_HEALTH, 69)
                 .add(Attributes.ATTACK_DAMAGE, 0)
                 .add(Attributes.ATTACK_KNOCKBACK, 5);
+    }
+
+    public Specialty getSpecialty() {
+        return this.SPECIALTY;
     }
 }
