@@ -20,19 +20,19 @@ import org.jetbrains.annotations.Nullable;
 import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
 
-public class TestEntity extends PathfinderMob {
+public class SwatEntity extends PathfinderMob {
 
     private static final Attribute[] ATTRIBUTES;
 
-    private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(TestEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
+    private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
-    protected TestEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+    protected SwatEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
     }
 
-    public TestEntity(Level level, Specialty specialty, double x, double y, double z) {
+    public SwatEntity(Level level, Specialty specialty, double x, double y, double z) {
         this(ModEntities.TEST_ENTITY.get(), level);
         this.setSpecialty(specialty);
         SpecialForces.LOGGER.info("Spec in constr was set to: " + this.getSpecialty());
@@ -57,7 +57,7 @@ public class TestEntity extends PathfinderMob {
 
         // TODO: Spawn allies based on the current mission
         Vec3 pos = this.position();
-        TestEntity mob1 = new TestEntity(level, Specialty.SNIPER, pos.x + 1, pos.y, pos.z + 1);
+        SwatEntity mob1 = new SwatEntity(level, Specialty.SNIPER, pos.x + 1, pos.y, pos.z + 1);
 //            TestEntity mob2 = new TestEntity(level, Specialty.MEDIC, pos.x - 1, pos.y, pos.z - 1);
         ForgeEventFactory.onFinalizeSpawn(mob1, level, difficulty, MobSpawnType.BREEDING, spawnData, dataTag);
         level.addFreshEntity(mob1);

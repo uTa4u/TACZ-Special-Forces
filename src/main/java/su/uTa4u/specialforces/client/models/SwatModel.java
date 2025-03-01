@@ -9,11 +9,11 @@ import net.minecraft.client.model.geom.builders.*;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import su.uTa4u.specialforces.client.animations.TestAnimation;
-import su.uTa4u.specialforces.entities.TestEntity;
+import su.uTa4u.specialforces.client.animations.SpecialForceAnimation;
+import su.uTa4u.specialforces.entities.SwatEntity;
 
 @OnlyIn(Dist.CLIENT)
-public class TestModel<T extends LivingEntity> extends HierarchicalModel<T> {
+public class SwatModel<T extends LivingEntity> extends HierarchicalModel<T> {
     private final ModelPart Head;
     private final ModelPart Body;
     private final ModelPart RightArm;
@@ -22,7 +22,7 @@ public class TestModel<T extends LivingEntity> extends HierarchicalModel<T> {
     private final ModelPart LeftLeg;
     private final ModelPart root;
 
-    public TestModel(ModelPart root) {
+    public SwatModel(ModelPart root) {
         // TODO: make parity with HumanoidModel names
         this.Head = root.getChild("Head");
         this.Body = root.getChild("Body");
@@ -42,7 +42,7 @@ public class TestModel<T extends LivingEntity> extends HierarchicalModel<T> {
         this.root().getAllParts().forEach(ModelPart::resetPose);
 
         // FIXME: switch on entity.getSpecialty() to handle different animations
-        this.animate(((TestEntity) entity).idleAnimationState, TestAnimation.IDLE, ageInTicks, 1.0f);
+        this.animate(((SwatEntity) entity).idleAnimationState, SpecialForceAnimation.IDLE, ageInTicks, 1.0f);
     }
 
     @Override

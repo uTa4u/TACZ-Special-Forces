@@ -14,10 +14,10 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import su.uTa4u.specialforces.client.ModModelLayers;
-import su.uTa4u.specialforces.client.models.TestModel;
-import su.uTa4u.specialforces.client.renderers.TestRenderer;
+import su.uTa4u.specialforces.client.models.SwatModel;
+import su.uTa4u.specialforces.client.renderers.SpecialForceRenderer;
 import su.uTa4u.specialforces.entities.ModEntities;
-import su.uTa4u.specialforces.entities.TestEntity;
+import su.uTa4u.specialforces.entities.SwatEntity;
 import su.uTa4u.specialforces.items.ModItems;
 
 @Mod(SpecialForces.MOD_ID)
@@ -45,12 +45,12 @@ public class SpecialForces
     public static class ModEventBusClientEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            EntityRenderers.register(ModEntities.TEST_ENTITY.get(), TestRenderer::new);
+            EntityRenderers.register(ModEntities.TEST_ENTITY.get(), SpecialForceRenderer::new);
         }
 
         @SubscribeEvent
         public static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-            event.registerLayerDefinition(ModModelLayers.TEST_MODEL, TestModel::createBodyLayer);
+            event.registerLayerDefinition(ModModelLayers.TEST_MODEL, SwatModel::createBodyLayer);
         }
     }
 
@@ -58,7 +58,7 @@ public class SpecialForces
     public static class ModEventBusEvents {
         @SubscribeEvent
         public static void onEntityAttributeCreationEvent(EntityAttributeCreationEvent event) {
-            event.put(ModEntities.TEST_ENTITY.get(), TestEntity.createDefaultAttributes().build());
+            event.put(ModEntities.TEST_ENTITY.get(), SwatEntity.createDefaultAttributes().build());
         }
     }
 }

@@ -11,12 +11,12 @@ import su.uTa4u.specialforces.SpecialForces;
 public class ModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES;
 
-    public static final RegistryObject<EntityType<TestEntity>> TEST_ENTITY;
+    public static final RegistryObject<EntityType<SwatEntity>> TEST_ENTITY;
 
     static {
         ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, SpecialForces.MOD_ID);
 
-        TEST_ENTITY = registerEntityType("test_entity", TestEntity::new);
+        TEST_ENTITY = registerEntityType("test_entity", SwatEntity::new);
     }
 
     // TODO: change size and MobCategory?

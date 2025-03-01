@@ -6,18 +6,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import su.uTa4u.specialforces.client.ModModelLayers;
-import su.uTa4u.specialforces.client.models.TestModel;
-import su.uTa4u.specialforces.entities.TestEntity;
+import su.uTa4u.specialforces.client.models.SwatModel;
+import su.uTa4u.specialforces.entities.SwatEntity;
 
 @OnlyIn(Dist.CLIENT)
-public class TestRenderer extends MobRenderer<TestEntity, TestModel<TestEntity>> {
+public class SpecialForceRenderer extends MobRenderer<SwatEntity, SwatModel<SwatEntity>> {
 
-    public TestRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx, new TestModel<>(ctx.bakeLayer(ModModelLayers.TEST_MODEL)), 0.5F);
+    public SpecialForceRenderer(EntityRendererProvider.Context ctx) {
+        super(ctx, new SwatModel<>(ctx.bakeLayer(ModModelLayers.TEST_MODEL)), 0.5F);
     }
 
     @Override
-    public ResourceLocation getTextureLocation(TestEntity entity) {
+    public ResourceLocation getTextureLocation(SwatEntity entity) {
         return entity.getSpecialty().getSkin();
     }
 }
