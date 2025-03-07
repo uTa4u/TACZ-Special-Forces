@@ -2,9 +2,11 @@ package su.uTa4u.specialforces.client.renderers;
 
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.NotNull;
 import su.uTa4u.specialforces.client.ModModelLayers;
 import su.uTa4u.specialforces.client.models.SwatModel;
 import su.uTa4u.specialforces.entities.SwatEntity;
@@ -14,8 +16,10 @@ public class SpecialForceRenderer extends MobRenderer<SwatEntity, SwatModel<Swat
 
     public SpecialForceRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new SwatModel<>(ctx.bakeLayer(ModModelLayers.TEST_MODEL)), 0.5F);
+        this.addLayer(new ItemInHandLayer<>(this, ctx.getItemInHandRenderer()));
     }
 
+    @NotNull
     @Override
     public ResourceLocation getTextureLocation(SwatEntity entity) {
         return entity.getSpecialty().getSkin();

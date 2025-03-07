@@ -4,10 +4,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
+import javax.annotation.Nullable;
 import java.util.Random;
 
 public enum Specialty {
-    COMMANDER("commander", Util.getResource("textures/entity/commander.png"), AttributeSupplier.builder().add(Attributes.MAX_HEALTH, 90 ).build()),
+    COMMANDER("commander", Util.getResource("textures/entity/commander.png"), AttributeSupplier.builder().add(Attributes.MAX_HEALTH, 90 ).add(Attributes.FOLLOW_RANGE, 16).build()),
     ASSAULTER("assaulter", Util.getResource("textures/entity/assaulter.png"), AttributeSupplier.builder().add(Attributes.MAX_HEALTH, 100).build()),
     GRENADIER("grenadier", Util.getResource("textures/entity/grenadier.png"), AttributeSupplier.builder().add(Attributes.MAX_HEALTH, 80 ).build()),
     BULLDOZER("bulldozer", Util.getResource("textures/entity/bulldozer.png"), AttributeSupplier.builder().add(Attributes.MAX_HEALTH, 150).build()),
@@ -33,6 +34,23 @@ public enum Specialty {
 
     public static Specialty getRandomSpecialty() {
         return VALUES[RNG.nextInt(SIZE)];
+    }
+
+    // TODO: make into a hashmap
+    @Nullable
+    public static Specialty getByName(String name) {
+        return switch (name) {
+            case ("commander") -> Specialty.COMMANDER;
+            case ("assaulter") -> Specialty.ASSAULTER;
+            case ("grenadier") -> Specialty.GRENADIER;
+            case ("bulldozer") -> Specialty.BULLDOZER;
+            case ("engineer")  -> Specialty.ENGINEER;
+            case ("sniper")    -> Specialty.SNIPER;
+            case ("medic")     -> Specialty.MEDIC;
+            case ("scout")     -> Specialty.SCOUT;
+            case ("spy")       -> Specialty.SPY;
+            default            -> null;
+        };
     }
 
     public String getName() {
