@@ -1,7 +1,6 @@
 package su.uTa4u.specialforces.entities.goal;
 
 import com.tacz.guns.api.entity.ShootResult;
-import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -71,11 +70,7 @@ public class GunAttackGoal extends Goal {
         LivingEntity target = this.shooter.getTarget();
         if (target == null || target.isDeadOrDying()) return;
 
-//        this.shooter.lookAt(target, 180.0f, 180.0f);
-        // TODO: this looks very bad. Aim should be smooth, but fast
-        this.shooter.lookAt(EntityAnchorArgument.Anchor.EYES, target.position());
-
-        if (!this.shooter.hasLineOfSight(target)) return;
+        if (!this.shooter.getLookControl().isLookingAtTarget()) return;
 
         this.shooter.aim(true);
         ShootResult result = this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);

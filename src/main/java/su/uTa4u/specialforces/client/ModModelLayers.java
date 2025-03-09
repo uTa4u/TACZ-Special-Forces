@@ -7,5 +7,5 @@ import su.uTa4u.specialforces.Util;
 
 @OnlyIn(Dist.CLIENT)
 public class ModModelLayers {
-    public static final ModelLayerLocation TEST_MODEL = new ModelLayerLocation(Util.getResource("test_layer"), "main");
+    public static final ModelLayerLocation SWAT = new ModelLayerLocation(Util.getResource("swat"), "main");
 }

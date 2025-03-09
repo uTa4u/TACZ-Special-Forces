@@ -17,7 +17,7 @@ public class ModItems {
     static {
         ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, SpecialForces.MOD_ID);
 
-        SWAT_SPAWN_EGG = ITEMS.register("swat_spawn_egg", () -> new ForgeSpawnEggItem(ModEntities.TEST_ENTITY, 0x131313, 0x78866b, new Item.Properties()));
+        SWAT_SPAWN_EGG = ITEMS.register("swat_spawn_egg", () -> new ForgeSpawnEggItem(ModEntities.SWAT_ENTITY, 0x131313, 0x78866b, new Item.Properties()));
     }
 
 }

@@ -66,12 +66,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         super(entityType, level);
     }
 
-    public SwatEntity(Level level, Specialty specialty, double x, double y, double z) {
-        this(ModEntities.TEST_ENTITY.get(), level);
-        this.setSpecialty(specialty);
-        LOGGER.info("Spec in constr was set to: " + this.getSpecialty());
-        this.setPos(x, y, z);
-    }
+//    public SwatEntity(Level level, Specialty specialty, double x, double y, double z) {
+//        this(ModEntities.SWAT_ENTITY.get(), level);
+//        this.setSpecialty(specialty);
+//        LOGGER.info("Spec in constr was set to: " + this.getSpecialty());
+//        this.setPos(x, y, z);
+//    }
 
     @Nullable
     @Override
@@ -91,6 +91,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
             this.registerSpecialGoals();
         }
 
+        // TODO: try using GunItemBuilder
         CompoundTag tag = new CompoundTag();
         tag.putString("GunId", "tacz:ak47");
         tag.putString("GunFireMode", "SEMI");
@@ -144,6 +145,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 
         if (this.level().isClientSide) {
             setupAnimationStates();
+        }
+
+        LivingEntity target = this.getTarget();
+        if (target != null && target.isAlive()) {
+            this.getLookControl().setLookAt(target);
+//            this.lookAt(target, 90.0f, 90.0f);
+//            this.lookAt(EntityAnchorArgument.Anchor.EYES, target.position());
         }
     }
 
