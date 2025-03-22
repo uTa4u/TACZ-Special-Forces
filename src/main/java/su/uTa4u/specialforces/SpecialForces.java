@@ -51,13 +51,13 @@ public class SpecialForces {
             }
         }
 
-        @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-        public static class ModEventBusEvents {
-            @SubscribeEvent
-            public static void onEntityAttributeCreationEvent(EntityAttributeCreationEvent event) {
-                event.put(ModEntities.SWAT_ENTITY.get(), SwatEntity.createDefaultAttributes().build());
-            }
+    }
 
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class ModEventBusEvents {
+        @SubscribeEvent
+        public static void onEntityAttributeCreationEvent(EntityAttributeCreationEvent event) {
+            event.put(ModEntities.SWAT_ENTITY.get(), SwatEntity.createDefaultAttributes().build());
         }
     }
 }
