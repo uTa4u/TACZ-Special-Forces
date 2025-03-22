@@ -1,6 +1,5 @@
 package su.uTa4u.specialforces.entities;
 
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.registries.DeferredRegister;
@@ -16,11 +15,10 @@ public class ModEntities {
     static {
         ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, SpecialForces.MOD_ID);
 
-        SWAT_ENTITY = registerEntityType("test_entity", SwatEntity::new);
+        SWAT_ENTITY = ENTITY_TYPES.register("swat_entity",
+                () -> EntityType.Builder.of(SwatEntity::new, MobCategory.CREATURE)
+                        .sized(0.6f, 1.8f)
+                        .build("swat_entity"));
     }
 
-    // TODO: change size and MobCategory?
-    private static <T extends Entity> RegistryObject<EntityType<T>> registerEntityType(String name, EntityType.EntityFactory<T> factory) {
-        return ENTITY_TYPES.register(name, () -> EntityType.Builder.of(factory, MobCategory.CREATURE).sized(1, 2).build(name));
-    }
 }

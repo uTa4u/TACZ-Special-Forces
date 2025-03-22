@@ -15,7 +15,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import su.uTa4u.specialforces.client.ModModelLayers;
 import su.uTa4u.specialforces.client.models.SwatModel;
-import su.uTa4u.specialforces.client.renderers.SpecialForceRenderer;
+import su.uTa4u.specialforces.client.renderers.SwatRenderer;
 import su.uTa4u.specialforces.entities.ModEntities;
 import su.uTa4u.specialforces.entities.SwatEntity;
 import su.uTa4u.specialforces.items.ModItems;
@@ -36,7 +36,7 @@ public class SpecialForces {
     public static class ModEventBusClientEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            EntityRenderers.register(ModEntities.SWAT_ENTITY.get(), SpecialForceRenderer::new);
+            EntityRenderers.register(ModEntities.SWAT_ENTITY.get(), SwatRenderer::new);
         }
 
         @SubscribeEvent

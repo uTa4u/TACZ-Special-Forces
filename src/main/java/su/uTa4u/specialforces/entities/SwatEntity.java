@@ -5,17 +5,16 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
-import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.api.item.builder.GunItemBuilder;
+import com.tacz.guns.api.item.gun.FireMode;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
-import com.tacz.guns.init.ModItems;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
@@ -28,29 +27,30 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.animal.Pig;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
-import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
-import su.uTa4u.specialforces.entities.goal.GunAttackGoal;
+import su.uTa4u.specialforces.Util;
+import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
+import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator {
-    private static final Logger LOGGER = LogUtils.getLogger();
 
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final EntityDimensions SWIMMING_DIMENSIONS = EntityDimensions.scalable(0.6F, 0.6F);
+    private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final Attribute[] ATTRIBUTES = new Attribute[]{
             Attributes.MAX_HEALTH,
             Attributes.FOLLOW_RANGE,
             Attributes.KNOCKBACK_RESISTANCE,
             Attributes.MOVEMENT_SPEED,
-            Attributes.FLYING_SPEED,
             Attributes.ATTACK_DAMAGE,
             Attributes.ATTACK_KNOCKBACK,
             Attributes.ATTACK_SPEED,
@@ -58,20 +58,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
             Attributes.ARMOR_TOUGHNESS,
     };
 
-    private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
-    public final AnimationState idleAnimationState = new AnimationState();
-    private int idleAnimationTimeout = 0;
+//    public final AnimationState idleAnimationState = new AnimationState();
+//    private int idleAnimationTimeout = 0;
 
     protected SwatEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
     }
-
-//    public SwatEntity(Level level, Specialty specialty, double x, double y, double z) {
-//        this(ModEntities.SWAT_ENTITY.get(), level);
-//        this.setSpecialty(specialty);
-//        LOGGER.info("Spec in constr was set to: " + this.getSpecialty());
-//        this.setPos(x, y, z);
-//    }
 
     @Nullable
     @Override
@@ -84,37 +76,28 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 
         ServerLevel level = levelAccessor.getLevel();
 
+        String gunId = "ak47";
+        ItemStack gun = GunItemBuilder.create()
+                .setId(Util.getTaczResource(gunId))
+                .setAmmoCount(30)
+                .setFireMode(FireMode.SEMI)
+                .build();
+        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
+        this.tacz$data.currentGunItem = () -> gun;
+        Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
+        if (gunIndexOptional.isEmpty()) {
+            this.remove(Entity.RemovalReason.DISCARDED);
+            LOGGER.error("SwatEntity spawned with an invalid gun an was terminated: {}", gunId);
+            return null;
+        }
+        AttachmentCacheProperty prop = new AttachmentCacheProperty();
+        prop.eval(gun, gunIndexOptional.get().getGunData());
+        this.updateCacheProperty(prop);
+
         this.copySpecialAttributes();
         if (!level.isClientSide) {
-            // TODO: these should be compressed into a single method
             this.registerCommonGoals();
             this.registerSpecialGoals();
-        }
-
-        // TODO: try using GunItemBuilder
-        CompoundTag tag = new CompoundTag();
-        tag.putString("GunId", "tacz:ak47");
-        tag.putString("GunFireMode", "SEMI");
-        tag.putInt("GunCurrentAmmoCount", 30);
-        ItemStack gunItemStack = ModItems.MODERN_KINETIC_GUN.get().getDefaultInstance();
-        Item gunItem = gunItemStack.getItem();
-        gunItemStack.setTag(tag);
-        this.setItemInHand(InteractionHand.MAIN_HAND, gunItemStack);
-        this.tacz$data.currentGunItem = () -> gunItemStack;
-        AttachmentCacheProperty prop = new AttachmentCacheProperty();
-        if (gunItem instanceof IGun iGun) {
-            ResourceLocation gunId = iGun.getGunId(gunItemStack);
-            Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(gunId);
-            if (gunIndexOptional.isEmpty()) {
-                this.terminate();
-                return null;
-            }
-            CommonGunIndex gunIndex =  gunIndexOptional.get();
-            prop.eval(gunItemStack, gunIndex.getGunData());
-            this.updateCacheProperty(prop);
-        } else {
-            this.terminate();
-            return null;
         }
 
         if (this.getSpecialty() != Specialty.COMMANDER) return spawnData;
@@ -128,30 +111,24 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         return spawnData;
     }
 
-    // TODO: remove before release, this is for debugging only
 //    @Override
 //    public boolean hurt(DamageSource source, float amount) {
 //        Entity causingEntity = source.getEntity();
-//        if (causingEntity instanceof LivingEntity living && !living.level().isClientSide && living.getItemInHand(InteractionHand.MAIN_HAND).is(Items.STICK)) {
-//            LOGGER.debug("target: " + this.getTarget());
-//            this.targetSelector.getRunningGoals().forEach((goal) -> LOGGER.debug("goal: " + goal.getGoal()));
-//        }
 //        return super.hurt(source, amount);
 //    }
 
     @Override
     public void tick() {
         super.tick();
+        this.taczTick();
+
+        LivingEntity target = this.getTarget();
+        if (this.tacz$data.isCrawling && (target == null || target.isDeadOrDying())) {
+            this.crawl(false);
+        }
 
         if (this.level().isClientSide) {
             setupAnimationStates();
-        }
-
-        LivingEntity target = this.getTarget();
-        if (target != null && target.isAlive()) {
-            this.getLookControl().setLookAt(target);
-//            this.lookAt(target, 90.0f, 90.0f);
-//            this.lookAt(EntityAnchorArgument.Anchor.EYES, target.position());
         }
     }
 
@@ -171,24 +148,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     }
 
     private void setupAnimationStates() {
-        if (this.idleAnimationTimeout <= 0) {
-            this.idleAnimationTimeout = this.random.nextInt(32) + 32;
-            this.idleAnimationState.start(this.tickCount);
-        } else {
-            --this.idleAnimationTimeout;
-        }
-    }
-
-    @Override
-    protected void updateWalkAnimation(float pPartialTick) {
-        float f;
-        if (this.idleAnimationState.isStarted()) {
-            f = 0.0f;
-        } else {
-            f = Math.min(pPartialTick * 15.0f, 1.0f);
-        }
-
-        this.walkAnimation.update(f, 0.4f);
+//        if (this.idleAnimationTimeout <= 0) {
+//            this.idleAnimationTimeout = this.random.nextInt(32) + 32;
+//            this.idleAnimationState.start(this.tickCount);
+//        } else {
+//            --this.idleAnimationTimeout;
+//        }
     }
 
     private void registerSpecialGoals() {
@@ -223,20 +188,16 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         }
     }
 
-    // TODO: remove/move this before release
-    private void terminate() {
-        this.remove(Entity.RemovalReason.DISCARDED);
-        LOGGER.error("SwatEntity spawned with a defect and was TERMINATED.");
-    }
-
     @Override
     protected void registerGoals() {
     }
 
     private void registerCommonGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-//        this.goalSelector.addGoal(1, new LookAtPlayerGoal(this, Player.class, 8.0f, 1.0f));
+        this.goalSelector.addGoal(1, new RetreatGoal(this));
         this.goalSelector.addGoal(2, new GunAttackGoal(this));
+        //FollowCommanderGoal
+        //RandomLookAroundGoal
 
         this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Pig.class, true));
@@ -244,7 +205,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
         AttributeSupplier.Builder builder = PathfinderMob.createLivingAttributes();
-        for (Attribute attribute : ATTRIBUTES) builder.add(attribute, 1);
+        for (Attribute attribute : ATTRIBUTES) builder.add(attribute);
         return builder;
     }
 
@@ -253,11 +214,23 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         for (Attribute attribute : ATTRIBUTES) {
             AttributeInstance attributeInstance = this.getAttributes().getInstance(attribute);
             if (attributeInstance != null && src.hasAttribute(attribute)) {
-//                LOGGER.debug("set attr: " + attribute.getDescriptionId());
                 attributeInstance.setBaseValue(src.getBaseValue(attribute));
             }
         }
         this.setHealth(this.getMaxHealth());
+    }
+
+//    public float getHsChance() {
+//
+//    }
+
+    @Override
+    protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
+        return switch (pose) {
+            case SWIMMING, FALL_FLYING, SPIN_ATTACK -> 0.4F;
+            case CROUCHING -> 1.27F;
+            default -> 1.62F;
+        };
     }
 
     @Override
@@ -268,7 +241,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     @NotNull
     @Override
     protected Component getTypeName() {
-        return Component.translatable("entity." + SpecialForces.MOD_ID + "." + this.getSpecialty().getName());
+        return Specialty.TYPE_NAME_BY_SPECIALTY.get(this.getSpecialty());
+    }
+
+    @NotNull
+    @Override
+    public EntityDimensions getDimensions(Pose pose) {
+        if (pose == Pose.SWIMMING) return SWIMMING_DIMENSIONS;
+        return super.getDimensions(pose);
     }
 
     @Override
@@ -445,9 +425,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         this.tacz$aim.zoom();
     }
 
-    private void onServerSideTick() {
+    private void taczTick() {
         if (level().isClientSide) return;
-
         ReloadState reloadState = this.tacz$reload.tickReloadState();
         this.tacz$aim.tickAimingProgress();
         this.tacz$aim.tickSprint();
