@@ -11,9 +11,8 @@ import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
+import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -28,7 +27,9 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -41,12 +42,11 @@ import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-public class SwatEntity extends PathfinderMob implements IGunOperator {
-    // 2 * InventorySlots + ArmorSlots + OffhandSlot
-    private static final int SWAT_INVENTORY_SIZE = 77;
+public class SwatEntity extends PathfinderMob implements IGunOperator, Container, MenuProvider {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final EntityDimensions SWIMMING_DIMENSIONS = EntityDimensions.scalable(0.6F, 0.6F);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
@@ -58,7 +58,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     //  2. add inventory, container etc.
     //  3. give supplies on spawn
     //  4. spawn corpse on death
-    private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
 //    public final AnimationState idleAnimationState = new AnimationState();
 //    private int idleAnimationTimeout = 0;
 
@@ -140,7 +139,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     public void addAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
         nbt.putString("specialty", this.getSpecialty().getName());
-        nbt.put("inventory", this.inventory.createTag());
+        ContainerHelper.saveAllItems(nbt, this.itemStacks);
     }
 
     @Override
@@ -150,10 +149,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         if (specialty != null) {
             this.setSpecialty(specialty);
         }
-        Tag inv = nbt.get("inventory");
-        if (inv instanceof ListTag) {
-            this.inventory.fromTag((ListTag) inv);
-        }
+        ContainerHelper.loadAllItems(nbt, this.itemStacks);
     }
 
     private void setupAnimationStates() {
@@ -229,11 +225,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         this.setHealth(this.getMaxHealth());
     }
 
-//    public float getHsChance() {
-//
-//    }
-
-
     @Override
     public boolean canBeLeashed(Player player) {
         return false;
@@ -251,10 +242,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     @Override
     public boolean canAttack(LivingEntity target) {
         return target.canBeSeenAsEnemy();
-    }
-
-    public SimpleContainer getInventory() {
-        return this.inventory;
     }
 
     @NotNull
@@ -463,4 +450,85 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         ModSyncedEntityData.SPRINT_TIME_KEY.setValue(tacz$shooter, this.tacz$data.sprintTimeS);
     }
 
+    //////////////////////////////////////////////////////////////////////
+    // Container and MenuProvider interfaces implementation begins here //
+    //////////////////////////////////////////////////////////////////////
+
+    // Adapted from AbstractMinecartContainer
+
+    // 2 * InventorySlots + ArmorSlots + OffhandSlot
+    public static final int SWAT_INVENTORY_SIZE = 36 + 36 + 4 + 1;
+    private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
+    private final NonNullList<ItemStack> itemStacks = NonNullList.withSize(SWAT_INVENTORY_SIZE, ItemStack.EMPTY);;
+
+    public NonNullList<ItemStack> getItemStacks() {
+        return this.itemStacks;
+    }
+
+    @Override
+    public int getContainerSize() {
+        return SWAT_INVENTORY_SIZE;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        Iterator<ItemStack> iter = this.getItemStacks().iterator();
+        ItemStack itemstack;
+        do {
+            if (!iter.hasNext())  return true;
+            itemstack = iter.next();
+        } while(itemstack.isEmpty());
+        return false;
+    }
+
+    @NotNull
+    @Override
+    public ItemStack getItem(int slot) {
+        return this.itemStacks.get(slot);
+    }
+
+    @NotNull
+    @Override
+    public ItemStack removeItem(int slot, int count) {
+        return ContainerHelper.removeItem(this.itemStacks, slot, count);
+    }
+
+    @NotNull
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        ItemStack itemstack = this.itemStacks.get(slot);
+        if (itemstack.isEmpty()) {
+            return ItemStack.EMPTY;
+        } else {
+            this.itemStacks.set(slot, ItemStack.EMPTY);
+            return itemstack;
+        }
+    }
+
+    @Override
+    public void setItem(int slot, @NotNull ItemStack itemStack) {
+        this.itemStacks.set(slot, itemStack);
+        if (!itemStack.isEmpty() && itemStack.getCount() > this.getMaxStackSize()) {
+            itemStack.setCount(this.getMaxStackSize());
+        }
+    }
+
+    @Override
+    public void setChanged() {}
+
+    @Override
+    public boolean stillValid(@NotNull Player player) {
+        return !this.isRemoved() && this.position().closerThan(player.position(), 8.0);
+    }
+
+    @Override
+    public void clearContent() {
+        this.itemStacks.clear();
+    }
+
+    @Nullable
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, @NotNull Inventory playerInventory, @NotNull Player player) {
+        return new SwatCorpseMenu(containerId, playerInventory, this.inventory);
+    }
 }
