@@ -16,13 +16,26 @@ import java.util.*;
 public class Observation implements IObservation {
     private static final Set<Block> BLOCKS_UNDER_OBSERVATION = new HashSet<>();
     private static final Set<EntityType<?>> ENTITIES_UNDER_OBSERVATION = new HashSet<>();
+//    protected static final int MISSION_COOLDOWN = 24000 * 2;
+    static final int MISSION_COOLDOWN = 1200;
 
-    private final Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
-    private final Map<EntityType<?>, List<UUID>> observedEntities = new HashMap<>();
+    private Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
+    private Map<EntityType<?>, List<UUID>> observedEntities = new HashMap<>();
+    private int lastMissionTick = 0;
 
     Observation() {
         BLOCKS_UNDER_OBSERVATION.forEach( block -> observedBlocks.put(block, new ArrayList<>()));
         ENTITIES_UNDER_OBSERVATION.forEach( entityType -> observedEntities.put(entityType, new ArrayList<>()));
+    }
+
+    @Override
+    public void setLastMissionTick(int tick) {
+        this.lastMissionTick = tick;
+    }
+
+    @Override
+    public int getLastMissionTick() {
+        return this.lastMissionTick;
     }
 
     @Override
@@ -46,8 +59,27 @@ public class Observation implements IObservation {
     }
 
     @Override
+    public Map<Block, List<BlockPos>> getObservedBlocks() {
+        return this.observedBlocks;
+    }
+
+    @Override
+    public Map<EntityType<?>, List<UUID>> getObservedEntities() {
+        return this.observedEntities;
+    }
+
+    @Override
+    public void copy(IObservation other) {
+        this.lastMissionTick = other.getLastMissionTick();
+        this.observedBlocks = other.getObservedBlocks();
+        this.observedEntities = other.getObservedEntities();
+    }
+
+    @Override
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
+
+        nbt.putInt("lastMissionTick", this.lastMissionTick);
 
         CompoundTag blocksTag = new CompoundTag();
         this.observedBlocks.forEach( (block, list) -> {
@@ -74,6 +106,9 @@ public class Observation implements IObservation {
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
+
+        this.lastMissionTick = nbt.getInt("lastMissionTick");
+
         CompoundTag blocksTag = (CompoundTag) nbt.get("blocks");
         if (blocksTag != null) {
             for (Block block : BLOCKS_UNDER_OBSERVATION) {

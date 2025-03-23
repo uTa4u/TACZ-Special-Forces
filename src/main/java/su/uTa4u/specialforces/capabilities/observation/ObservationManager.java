@@ -3,6 +3,7 @@ package su.uTa4u.specialforces.capabilities.observation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -13,7 +14,10 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import net.minecraftforge.common.capabilities.ICapabilitySerializable;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.common.util.NonNullConsumer;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -34,10 +38,33 @@ public class ObservationManager {
         BlockPos pos = event.getPos();
         Block block = level.getBlockState(pos).getBlock();
         if (Observation.isObserved(block)) {
-            event.getEntity().getCapability(ModCapabilities.PLAYER_OBSERVATION).ifPresent(cap -> {
-                cap.observe(block, pos);
-            });
+            ifCapPresent(event.getEntity(), (cap) -> cap.observe(block, pos));
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTickEvent(TickEvent.PlayerTickEvent event) {
+        if (event.side.isClient() || event.phase != TickEvent.Phase.START) return;
+        ifCapPresent(event.player, (cap) -> {
+            // TODO: extract to tick method in Observation
+            if (event.player.tickCount - cap.getLastMissionTick() >= Observation.MISSION_COOLDOWN) {
+                cap.setLastMissionTick(event.player.tickCount);
+                // If no Missions is running currently:
+                // Select Mission
+                // Start Mission
+                // If Mission is running currently:
+                // Send reinforcements
+                event.player.displayClientMessage(Component.literal("Time to start a new Mission!"), false);
+            }
+        });
+    }
+
+    @SubscribeEvent
+    public static void onPlayerDeath(PlayerEvent.Clone event) {
+        if (event.getEntity().level().isClientSide) return;
+        Player oldPlayer = event.getOriginal();
+        oldPlayer.reviveCaps();
+        ifCapPresent(event.getEntity(), (cap) -> ifCapPresent(oldPlayer, cap::copy));
     }
 
     @SubscribeEvent
@@ -68,6 +95,10 @@ public class ObservationManager {
         };
 
         event.addCapability(IDENTIFIER, provider);
+    }
+
+    private static void ifCapPresent(Player player, NonNullConsumer<? super IObservation> consumer) {
+        player.getCapability(ModCapabilities.PLAYER_OBSERVATION).ifPresent(consumer);
     }
 
     private ObservationManager() {}
