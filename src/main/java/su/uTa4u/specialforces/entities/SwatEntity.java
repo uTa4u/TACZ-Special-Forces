@@ -12,12 +12,13 @@ import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.DifficultyInstance;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.world.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -27,6 +28,7 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -37,27 +39,26 @@ import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
+import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator {
-
+    // 2 * InventorySlots + ArmorSlots + OffhandSlot
+    private static final int SWAT_INVENTORY_SIZE = 77;
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final EntityDimensions SWIMMING_DIMENSIONS = EntityDimensions.scalable(0.6F, 0.6F);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
-    private static final Attribute[] ATTRIBUTES = new Attribute[]{
-            Attributes.MAX_HEALTH,
-            Attributes.FOLLOW_RANGE,
-            Attributes.KNOCKBACK_RESISTANCE,
-            Attributes.MOVEMENT_SPEED,
-            Attributes.ATTACK_DAMAGE,
-            Attributes.ATTACK_KNOCKBACK,
-            Attributes.ATTACK_SPEED,
-            Attributes.ARMOR,
-            Attributes.ARMOR_TOUGHNESS,
-    };
+    // TODO: get rid of this
+    private static final Attribute[] ATTRIBUTES = new Attribute[]{Attributes.MAX_HEALTH, Attributes.FOLLOW_RANGE, Attributes.KNOCKBACK_RESISTANCE, Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE, Attributes.ATTACK_KNOCKBACK, Attributes.ATTACK_SPEED, Attributes.ARMOR, Attributes.ARMOR_TOUGHNESS,};
 
+    // TODO:
+    //  1. implement ItemHandler capability
+    //  2. add inventory, container etc.
+    //  3. give supplies on spawn
+    //  4. spawn corpse on death
+    private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
 //    public final AnimationState idleAnimationState = new AnimationState();
 //    private int idleAnimationTimeout = 0;
 
@@ -67,7 +68,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 
     @Nullable
     @Override
-    public SpawnGroupData finalizeSpawn(ServerLevelAccessor levelAccessor, DifficultyInstance difficulty, MobSpawnType spawnType, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
+    public SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor levelAccessor, @NotNull DifficultyInstance difficulty, @NotNull MobSpawnType spawnType, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
         // TODO: || spawnType == MobSpawnType.SPAWN_EGG
         if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.COMMAND) {
             this.setSpecialty(Specialty.getRandomSpecialty());
@@ -111,11 +112,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
         return spawnData;
     }
 
-//    @Override
-//    public boolean hurt(DamageSource source, float amount) {
-//        Entity causingEntity = source.getEntity();
-//        return super.hurt(source, amount);
-//    }
+    @NotNull
+    @Override
+    protected InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
+        Level level = player.level();
+        player.openMenu(new SimpleMenuProvider( (id, inv, p) -> new SwatCorpseMenu(id, inv, this), this.getTypeName()));
+
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 
     @Override
     public void tick() {
@@ -133,17 +137,22 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     }
 
     @Override
-    public void addAdditionalSaveData(CompoundTag compound) {
-        super.addAdditionalSaveData(compound);
-        compound.putString("specialty", this.getSpecialty().getName());
+    public void addAdditionalSaveData(@NotNull CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
+        nbt.putString("specialty", this.getSpecialty().getName());
+        nbt.put("inventory", this.inventory.createTag());
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
-        super.readAdditionalSaveData(compound);
-        Specialty specialty = Specialty.getByName(compound.getString("specialty"));
+    public void readAdditionalSaveData(@NotNull CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
+        Specialty specialty = Specialty.SPECIALTY_BY_NAME.get(nbt.getString("specialty"));
         if (specialty != null) {
             this.setSpecialty(specialty);
+        }
+        Tag inv = nbt.get("inventory");
+        if (inv instanceof ListTag) {
+            this.inventory.fromTag((ListTag) inv);
         }
     }
 
@@ -224,6 +233,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 //
 //    }
 
+
+    @Override
+    public boolean canBeLeashed(Player player) {
+        return false;
+    }
+
     @Override
     protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
         return switch (pose) {
@@ -236,6 +251,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
     @Override
     public boolean canAttack(LivingEntity target) {
         return target.canBeSeenAsEnemy();
+    }
+
+    public SimpleContainer getInventory() {
+        return this.inventory;
     }
 
     @NotNull
@@ -342,9 +361,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator {
 
     @Override
     public void reload() {
-//        if (this.level() instanceof ServerLevel) this.triggerAnim("reload", "reload");
         this.tacz$reload.reload();
-//        this.isReloading = true;
     }
 
     @Override

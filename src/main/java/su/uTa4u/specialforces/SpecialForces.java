@@ -1,6 +1,7 @@
 package su.uTa4u.specialforces;
 
 import com.mojang.logging.LogUtils;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraftforge.api.distmarker.Dist;
@@ -16,9 +17,11 @@ import org.slf4j.Logger;
 import su.uTa4u.specialforces.client.ModModelLayers;
 import su.uTa4u.specialforces.client.models.SwatModel;
 import su.uTa4u.specialforces.client.renderers.SwatRenderer;
+import su.uTa4u.specialforces.client.screens.SwatCorpseScreen;
 import su.uTa4u.specialforces.entities.ModEntities;
 import su.uTa4u.specialforces.entities.SwatEntity;
 import su.uTa4u.specialforces.items.ModItems;
+import su.uTa4u.specialforces.menus.ModMenuTypes;
 
 @Mod(SpecialForces.MOD_ID)
 public class SpecialForces {
@@ -26,10 +29,11 @@ public class SpecialForces {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public SpecialForces(FMLJavaModLoadingContext context) {
-        IEventBus eventBus = context.getModEventBus();
+        IEventBus modBus = context.getModEventBus();
 
-        ModItems.ITEMS.register(eventBus);
-        ModEntities.ENTITY_TYPES.register(eventBus);
+        ModItems.ITEMS.register(modBus);
+        ModEntities.ENTITY_TYPES.register(modBus);
+        ModMenuTypes.MENU_TYPES.register(modBus);
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -37,6 +41,7 @@ public class SpecialForces {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             EntityRenderers.register(ModEntities.SWAT_ENTITY.get(), SwatRenderer::new);
+            MenuScreens.register(ModMenuTypes.SWAT_CORPSE.get(), SwatCorpseScreen::new);
         }
 
         @SubscribeEvent

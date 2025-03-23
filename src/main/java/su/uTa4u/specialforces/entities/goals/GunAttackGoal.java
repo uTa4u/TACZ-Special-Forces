@@ -6,11 +6,11 @@ import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.pathfinder.Path;
-import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.EnumSet;
@@ -78,7 +78,7 @@ public class GunAttackGoal extends Goal {
         double lookOffset = (3 - this.shooter.level().getDifficulty().getId() + 2) * 0.15;
         double lookX = target.getX() + Mth.nextDouble(rng, -lookOffset, lookOffset);
         double lookZ = target.getZ() + Mth.nextDouble(rng, -lookOffset, lookOffset);
-        double lookY = this.isAimingAtHead ? target.getEyeY() : Util.getBodyY(target) + Mth.nextDouble(rng, -lookOffset, lookOffset);
+        double lookY = this.isAimingAtHead ? target.getEyeY() : getBodyY(target) + Mth.nextDouble(rng, -lookOffset, lookOffset);
         this.shooter.getLookControl().setLookAt(lookX, lookY, lookZ);
 
         if (this.shooter.tickCount - lastAttackTick < ATTACK_COOLDOWN) return;
@@ -93,5 +93,9 @@ public class GunAttackGoal extends Goal {
     @Override
     public boolean requiresUpdateEveryTick() {
         return true;
+    }
+
+    private static double getBodyY(Entity entity) {
+        return (entity.getBoundingBox().minY + entity.getBoundingBox().maxY) / 2.0;
     }
 }
