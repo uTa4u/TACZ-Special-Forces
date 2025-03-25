@@ -26,9 +26,6 @@ public class GunAttackGoal extends Goal {
     private int lastAttackTick = 0;
     private boolean isAimingAtHead = false;
 
-    // TODO: remove this
-    private boolean noammo = false;
-
     public GunAttackGoal(SwatEntity shooter) {
         this.shooter = shooter;
 
@@ -42,7 +39,7 @@ public class GunAttackGoal extends Goal {
     @Override
     public boolean canUse() {
         LivingEntity target = this.shooter.getTarget();
-        return target != null && !target.isDeadOrDying() && !this.noammo;
+        return target != null && !target.isDeadOrDying();
     }
 
     @Override
@@ -65,7 +62,7 @@ public class GunAttackGoal extends Goal {
     @Override
     public void tick() {
         LivingEntity target = this.shooter.getTarget();
-        if (target == null || target.isDeadOrDying()) return;
+        if (target == null || target.isDeadOrDying() || !this.shooter.hasLineOfSight(target)) return;
 
         double dist = this.shooter.distanceToSqr(target);
         if (dist > this.attackRadiusSqr) {
@@ -78,7 +75,7 @@ public class GunAttackGoal extends Goal {
         double lookOffset = (3 - this.shooter.level().getDifficulty().getId() + 2) * 0.15;
         double lookX = target.getX() + Mth.nextDouble(rng, -lookOffset, lookOffset);
         double lookZ = target.getZ() + Mth.nextDouble(rng, -lookOffset, lookOffset);
-        double lookY = this.isAimingAtHead ? target.getEyeY() : getBodyY(target) + Mth.nextDouble(rng, -lookOffset, lookOffset);
+        double lookY = (this.isAimingAtHead ? target.getEyeY() : getBodyY(target)) + Mth.nextDouble(rng, -lookOffset, lookOffset);
         this.shooter.getLookControl().setLookAt(lookX, lookY, lookZ);
 
         if (this.shooter.tickCount - lastAttackTick < ATTACK_COOLDOWN) return;
@@ -86,8 +83,12 @@ public class GunAttackGoal extends Goal {
 
         this.isAimingAtHead = this.shooter.getRandom().nextFloat() < this.shooter.getSpecialty().getHeadAimChance();
 
+        // TODO: instead of making entity look at the place they are about to shoot, calculate pitch and yaw
+        //  while looking at head or body
         ShootResult result = this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
-        if (result == ShootResult.NO_AMMO) this.noammo = true;
+        if (result == ShootResult.NO_AMMO) {
+            this.shooter.reload();
+        }
     }
 
     @Override

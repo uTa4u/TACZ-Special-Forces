@@ -1,6 +1,5 @@
 package su.uTa4u.specialforces.entities;
 
-import com.mojang.logging.LogUtils;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
@@ -31,11 +30,16 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
+import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
@@ -54,8 +58,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final Attribute[] ATTRIBUTES = new Attribute[]{Attributes.MAX_HEALTH, Attributes.FOLLOW_RANGE, Attributes.KNOCKBACK_RESISTANCE, Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE, Attributes.ATTACK_KNOCKBACK, Attributes.ATTACK_SPEED, Attributes.ARMOR, Attributes.ARMOR_TOUGHNESS,};
 
     // TODO:
-    //  1. implement ItemHandler capability
-    //  2. add inventory, container etc.
     //  3. give supplies on spawn
     //  4. spawn corpse on death
 //    public final AnimationState idleAnimationState = new AnimationState();
@@ -63,6 +65,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     protected SwatEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
+        this.itemStacks = NonNullList.withSize(SWAT_INVENTORY_SIZE, ItemStack.EMPTY);
+        this.itemHandler = LazyOptional.of(() -> new InvWrapper(this));
     }
 
     @Nullable
@@ -71,7 +75,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         // TODO: || spawnType == MobSpawnType.SPAWN_EGG
         if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.COMMAND) {
             this.setSpecialty(Specialty.getRandomSpecialty());
-            LOGGER.info("Random Spec: " + this.getSpecialty());
+            SpecialForces.LOGGER.info("Random Spec: " + this.getSpecialty());
         }
 
         ServerLevel level = levelAccessor.getLevel();
@@ -79,15 +83,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         String gunId = "ak47";
         ItemStack gun = GunItemBuilder.create()
                 .setId(Util.getTaczResource(gunId))
-                .setAmmoCount(30)
+                .setAmmoCount(5)
                 .setFireMode(FireMode.SEMI)
                 .build();
         this.setItemInHand(InteractionHand.MAIN_HAND, gun);
         this.tacz$data.currentGunItem = () -> gun;
         Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
         if (gunIndexOptional.isEmpty()) {
-            this.remove(Entity.RemovalReason.DISCARDED);
-            LOGGER.error("SwatEntity spawned with an invalid gun an was terminated: {}", gunId);
+            this.remove(RemovalReason.DISCARDED);
+            SpecialForces.LOGGER.error("SwatEntity spawned with an invalid gun an was terminated: {}", gunId);
             return null;
         }
         AttachmentCacheProperty prop = new AttachmentCacheProperty();
@@ -164,31 +168,31 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private void registerSpecialGoals() {
         switch (this.getSpecialty()) {
             case COMMANDER -> {
-                LOGGER.info("COMMANDER goals registered");
+                SpecialForces.LOGGER.info("COMMANDER goals registered");
             }
             case ASSAULTER -> {
-                LOGGER.info("ASSAULTER goals registered");
+                SpecialForces.LOGGER.info("ASSAULTER goals registered");
             }
             case GRENADIER -> {
-                LOGGER.info("GRENADIER goals registered");
+                SpecialForces.LOGGER.info("GRENADIER goals registered");
             }
             case BULLDOZER -> {
-                LOGGER.info("BULLDOZER goals registered");
+                SpecialForces.LOGGER.info("BULLDOZER goals registered");
             }
             case ENGINEER -> {
-                LOGGER.info("ENGINEER goals registered");
+                SpecialForces.LOGGER.info("ENGINEER goals registered");
             }
             case SNIPER -> {
-                LOGGER.info("SNIPER goals registered");
+                SpecialForces.LOGGER.info("SNIPER goals registered");
             }
             case MEDIC -> {
-                LOGGER.info("MEDIC goals registered");
+                SpecialForces.LOGGER.info("MEDIC goals registered");
             }
             case SCOUT -> {
-                LOGGER.info("SCOUT goals registered");
+                SpecialForces.LOGGER.info("SCOUT goals registered");
             }
             case SPY -> {
-                LOGGER.info("SPY goals registered");
+                SpecialForces.LOGGER.info("SPY goals registered");
             }
         }
     }
@@ -201,20 +205,22 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new RetreatGoal(this));
         this.goalSelector.addGoal(2, new GunAttackGoal(this));
-        //FollowCommanderGoal
-        //RandomLookAroundGoal
+        // Use potion
+        // RandomLookAroundGoal
 
         this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Pig.class, true));
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
+        // TODO: rework this to not depend on ATTRIBUTES array (if possible)
         AttributeSupplier.Builder builder = PathfinderMob.createLivingAttributes();
         for (Attribute attribute : ATTRIBUTES) builder.add(attribute);
         return builder;
     }
 
     private void copySpecialAttributes() {
+        // TODO: rework this to not depend on ATTRIBUTES array (if possible)
         AttributeSupplier src = this.getSpecialty().getAttributes();
         for (Attribute attribute : ATTRIBUTES) {
             AttributeInstance attributeInstance = this.getAttributes().getInstance(attribute);
@@ -226,12 +232,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     @Override
-    public boolean canBeLeashed(Player player) {
+    public boolean canBeLeashed(@NotNull Player player) {
         return false;
     }
 
     @Override
-    protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
+    protected float getStandingEyeHeight(Pose pose, @NotNull EntityDimensions dimensions) {
         return switch (pose) {
             case SWIMMING, FALL_FLYING, SPIN_ATTACK -> 0.4F;
             case CROUCHING -> 1.27F;
@@ -452,14 +458,34 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     //////////////////////////////////////////////////////////////////////
     // Container and MenuProvider interfaces implementation begins here //
+    // ItemHandler capability implementation begins here                //
     //////////////////////////////////////////////////////////////////////
 
-    // Adapted from AbstractMinecartContainer
+    // Adapted from AbstractMinecartContainer and ContainerEntity
 
     // 2 * InventorySlots + ArmorSlots + OffhandSlot
     public static final int SWAT_INVENTORY_SIZE = 36 + 36 + 4 + 1;
     private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
-    private final NonNullList<ItemStack> itemStacks = NonNullList.withSize(SWAT_INVENTORY_SIZE, ItemStack.EMPTY);;
+    private final NonNullList<ItemStack> itemStacks;
+    private LazyOptional<?> itemHandler;
+
+    @NotNull
+    @Override
+    public <T> LazyOptional<T> getCapability(@NotNull Capability<T> capability, @Nullable Direction facing) {
+        return capability == ForgeCapabilities.ITEM_HANDLER && this.isAlive() ? this.itemHandler.cast() : super.getCapability(capability, facing);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        this.itemHandler.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        this.itemHandler = LazyOptional.of(() -> new InvWrapper(this));
+    }
 
     public NonNullList<ItemStack> getItemStacks() {
         return this.itemStacks;
@@ -475,9 +501,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         Iterator<ItemStack> iter = this.getItemStacks().iterator();
         ItemStack itemstack;
         do {
-            if (!iter.hasNext())  return true;
+            if (!iter.hasNext()) return true;
             itemstack = iter.next();
-        } while(itemstack.isEmpty());
+        } while (itemstack.isEmpty());
         return false;
     }
 
@@ -514,7 +540,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     @Override
-    public void setChanged() {}
+    public void setChanged() {
+    }
 
     @Override
     public boolean stillValid(@NotNull Player player) {
