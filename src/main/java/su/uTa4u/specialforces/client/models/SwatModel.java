@@ -6,6 +6,7 @@ import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.NotNull;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 @OnlyIn(Dist.CLIENT)
@@ -15,10 +16,20 @@ public class SwatModel extends HumanoidModel<SwatEntity> {
     }
 
     @Override
-    public void setupAnim(SwatEntity entity, float limbSpeed, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+    public void setupAnim(@NotNull SwatEntity entity, float limbSpeed, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
         super.setupAnim(entity, limbSpeed, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
-//        this.root().getAllParts().forEach(ModelPart::resetPose);
-        // FIXME: switch on entity.getSpecialty() to handle different animations
+        if (entity.getState() == SwatEntity.STATE_DEAD) {
+            this.rightArm.setRotation(0.0f, 0.0f, 0.0f);
+            this.leftArm.setRotation(0.0f, 0.0f, 0.0f);
+            this.rightLeg.setRotation(0.0f, 0.0f, 0.0f);
+            this.leftLeg.setRotation(0.0f, 0.0f, 0.0f);
+        } else if (entity.getState() == SwatEntity.STATE_DOWN) {
+            this.rightArm.xRot += 1.0f;
+            this.leftArm.xRot += 1.0f;
+            this.head.xRot += 1.0f;
+        }
+
+        // TODO: switch on entity.getSpecialty() to handle different animations
 //        this.animate(((SwatEntity) entity).idleAnimationState, SpecialForceAnimation.IDLE, ageInTicks, 1.0f);
     }
 
