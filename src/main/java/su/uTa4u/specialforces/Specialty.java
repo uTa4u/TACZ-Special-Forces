@@ -2,6 +2,7 @@ package su.uTa4u.specialforces;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
@@ -60,19 +61,19 @@ public enum Specialty {
     private static final Specialty[] VALUES = values();
     private static final int SIZE = VALUES.length;
 
-    public final static Map<Specialty, Component> TYPE_NAME_BY_SPECIALTY = new HashMap<>();
-    public final static Map<String, Specialty> SPECIALTY_BY_NAME = new HashMap<>();
+    public static final Map<Specialty, Component> TYPE_NAMES = new HashMap<>();
+    public static final Map<String, Specialty> SPECIALTY_BY_NAME = new HashMap<>();
 
     private final String name;
     private final ResourceLocation skin;
     private final float headAimChance;
-    private final AttributeSupplier attributes;
+    private final AttributeMap attributes;
 
     Specialty(String name, float headAimChance, AttributeSupplier supplier) {
         this.name = name;
         this.skin = Util.getResource("textures/entity/" + name + ".png");
         this.headAimChance = headAimChance;
-        this.attributes = supplier;
+        this.attributes = initAttributeMap(supplier);
     }
 
     public static Specialty getRandomSpecialty() {
@@ -91,13 +92,32 @@ public enum Specialty {
         return this.headAimChance;
     }
 
-    public AttributeSupplier getAttributes() {
+    public AttributeMap getAttributes() {
         return this.attributes;
+    }
+
+    private static AttributeMap initAttributeMap(AttributeSupplier supplier) {
+        AttributeMap map = new AttributeMap(supplier);
+
+        // Initialize `Attribute` types which are set on creating `Specialty` enum members,
+        // otherwise `AttributeMap#assignValues` will try to loop over empty `attributes` map
+        // and SwatEntities will spawn with default attributes
+        map.getInstance(Attributes.MAX_HEALTH);
+        map.getInstance(Attributes.FOLLOW_RANGE);
+        map.getInstance(Attributes.KNOCKBACK_RESISTANCE);
+        map.getInstance(Attributes.MOVEMENT_SPEED);
+        map.getInstance(Attributes.ATTACK_DAMAGE);
+        map.getInstance(Attributes.ATTACK_KNOCKBACK);
+        map.getInstance(Attributes.ATTACK_SPEED);
+        map.getInstance(Attributes.ARMOR);
+        map.getInstance(Attributes.ARMOR_TOUGHNESS);
+
+        return map;
     }
 
     static {
         for (Specialty specialty : VALUES) {
-            TYPE_NAME_BY_SPECIALTY.put(specialty, Component.translatable("entity." + SpecialForces.MOD_ID + "." + specialty.name));
+            TYPE_NAMES.put(specialty, Component.translatable("entity." + SpecialForces.MOD_ID + "." + specialty.name));
             SPECIALTY_BY_NAME.put(specialty.name, specialty);
         }
     }

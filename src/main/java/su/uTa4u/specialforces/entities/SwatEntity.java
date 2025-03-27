@@ -22,10 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.*;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
@@ -62,10 +59,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public static final byte STATE_ALIVE = 0;
     public static final byte STATE_DOWN = 1;
     public static final byte STATE_DEAD = 2;
-    // TODO: get rid of this, tru AttributeMap#load
-    private static final Attribute[] ATTRIBUTES = new Attribute[]{Attributes.MAX_HEALTH, Attributes.FOLLOW_RANGE, Attributes.KNOCKBACK_RESISTANCE, Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE, Attributes.ATTACK_KNOCKBACK, Attributes.ATTACK_SPEED, Attributes.ARMOR, Attributes.ARMOR_TOUGHNESS,};
 
-    private static final float DOWN_DAMAGE_THRESHOLD = 20.0f;
+    private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
 
     private float currentGunAttackRadiusSqr;
 
@@ -114,6 +109,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
         this.copySpecialAttributes();
+
         if (!level.isClientSide) {
             // TODO: this should be called on added to world
             this.registerSpecialGoals();
@@ -155,7 +151,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
         super.heal(healAmount);
 
-        if (this.getHealth() > DOWN_DAMAGE_THRESHOLD) {
+        if (this.getHealth() > DOWN_HEALTH_THRESHOLD) {
             // Swat Entity has healed above threshold
             this.setState(STATE_ALIVE);
             this.setSpeed((float) this.getAttributeValue(Attributes.MOVEMENT_SPEED));
@@ -170,7 +166,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         dmg = Math.max(dmg - this.getAbsorptionAmount(), 0.0f);
 
         float hpAfterDmg = this.getHealth() - dmg;
-        if (hpAfterDmg <= DOWN_DAMAGE_THRESHOLD) {
+        if (hpAfterDmg <= DOWN_HEALTH_THRESHOLD) {
             // Swat Entity goes down. It can attack, but can't move.
             // Can heal and be healed, if health goes above the threshold, it goes up.
             this.setState(STATE_DOWN);
@@ -196,7 +192,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.taczTick();
 
         LivingEntity target = this.getTarget();
-        if (this.tacz$data.isCrawling && (target == null || target.isDeadOrDying())) {
+        if (this.tacz$data.isCrawling && (target == null || target.isDeadOrDying() || this.getState() != STATE_ALIVE)) {
             this.crawl(false);
         }
 
@@ -282,21 +278,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
-        // TODO: rework this to not depend on ATTRIBUTES array (if possible)
-        AttributeSupplier.Builder builder = PathfinderMob.createLivingAttributes();
-        for (Attribute attribute : ATTRIBUTES) builder.add(attribute);
-        return builder;
+        return LivingEntity.createLivingAttributes()
+                .add(Attributes.FOLLOW_RANGE)
+                .add(Attributes.ATTACK_DAMAGE)
+                .add(Attributes.ATTACK_KNOCKBACK)
+                .add(Attributes.ATTACK_SPEED);
     }
 
     private void copySpecialAttributes() {
-        // TODO: rework this to not depend on ATTRIBUTES array (if possible)
-        AttributeSupplier src = this.getSpecialty().getAttributes();
-        for (Attribute attribute : ATTRIBUTES) {
-            AttributeInstance attributeInstance = this.getAttributes().getInstance(attribute);
-            if (attributeInstance != null && src.hasAttribute(attribute)) {
-                attributeInstance.setBaseValue(src.getBaseValue(attribute));
-            }
-        }
+        this.getAttributes().assignValues(this.getSpecialty().getAttributes());
         this.setHealth(this.getMaxHealth());
     }
 
@@ -313,7 +303,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @NotNull
     @Override
     protected Component getTypeName() {
-        return Specialty.TYPE_NAME_BY_SPECIALTY.get(this.getSpecialty());
+        return Specialty.TYPE_NAMES.get(this.getSpecialty());
     }
 
     @NotNull
