@@ -1,29 +1,21 @@
 package su.uTa4u.specialforces.entities.goals;
 
-import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ShootResult;
-import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
-import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.level.pathfinder.Path;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.EnumSet;
-import java.util.Objects;
 
 public class GunAttackGoal extends Goal {
-    // Entities should shoot a little further than their weapon's effective range
-    private static final float EFFECTIVE_RANGE_MULT = 2.0f;
+    // TODO: Should depend on roundsPerMinute stored in GunData
     private static final int ATTACK_COOLDOWN = 40;
 
     private final SwatEntity shooter;
-    private Path path;
-    private final float attackRadiusSqr;
     private int lastAttackTick = 0;
     private boolean isAimingAtHead = false;
 
@@ -32,10 +24,6 @@ public class GunAttackGoal extends Goal {
 
     public GunAttackGoal(SwatEntity shooter) {
         this.shooter = shooter;
-
-        AttachmentCacheProperty cacheProperty = Objects.requireNonNull(IGunOperator.fromLivingEntity(shooter).getCacheProperty());
-        float effectiveRange = cacheProperty.getCache(EffectiveRangeModifier.ID);
-        this.attackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
@@ -66,10 +54,10 @@ public class GunAttackGoal extends Goal {
     @Override
     public void tick() {
         LivingEntity target = this.shooter.getTarget();
-        if (target == null || target.isDeadOrDying() || !this.shooter.hasLineOfSight(target)) return;
+        if (target == null || target.isDeadOrDying()) return;
 
         double dist = this.shooter.distanceToSqr(target);
-        if (dist > this.attackRadiusSqr) {
+        if (dist > this.shooter.getGunAttackRadiusSqr() || !this.shooter.hasLineOfSight(target)) {
             this.shooter.getNavigation().moveTo(target, 1.0);
             return;
         }
@@ -84,14 +72,14 @@ public class GunAttackGoal extends Goal {
         if (this.shooter.tickCount - lastAttackTick < ATTACK_COOLDOWN) return;
         lastAttackTick = this.shooter.tickCount;
 
-        this.isAimingAtHead = this.shooter.getRandom().nextFloat() < this.shooter.getSpecialty().getHeadAimChance();
-
         this.computeBulletPitchYaw(targetX, targetY, targetZ);
         ShootResult result = this.shooter.shoot(() -> this.bulletPitch, () -> this.bulletYaw);
         this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
         if (result == ShootResult.NO_AMMO) {
             this.shooter.reload();
         }
+
+        this.isAimingAtHead = this.shooter.getRandom().nextFloat() < this.shooter.getSpecialty().getHeadAimChance();
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
+import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -56,6 +57,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final EntityDataAccessor<Byte> STATE = SynchedEntityData.defineId(SwatEntity.class, EntityDataSerializers.BYTE);
+    // Entities should shoot a little further than their weapon's effective range
+    private static final float EFFECTIVE_RANGE_MULT = 2.0f;
     public static final byte STATE_ALIVE = 0;
     public static final byte STATE_DOWN = 1;
     public static final byte STATE_DEAD = 2;
@@ -64,9 +67,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     private static final float DOWN_DAMAGE_THRESHOLD = 20.0f;
 
+    private float currentGunAttackRadiusSqr;
+
     // TODO:
     //  3. give supplies on spawn
-    //  investigate LivingEntity#readAdditionalSaveData, it doesn't set health properly
 //    public final AnimationState idleAnimationState = new AnimationState();
 //    private int idleAnimationTimeout = 0;
 
@@ -90,8 +94,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         String gunId = "ak47";
         ItemStack gun = GunItemBuilder.create()
                 .setId(Util.getTaczResource(gunId))
-                .setAmmoCount(30)
-                .setFireMode(FireMode.SEMI)
+                .setAmmoCount(20)
+                .setFireMode(FireMode.BURST)
                 .build();
         // TODO: place item in inventory and take it in hand
         //  copy methods from Inventory
@@ -106,10 +110,12 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         AttachmentCacheProperty prop = new AttachmentCacheProperty();
         prop.eval(gun, gunIndexOptional.get().getGunData());
         this.updateCacheProperty(prop);
+        float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
+        this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
         this.copySpecialAttributes();
         if (!level.isClientSide) {
-            this.registerCommonGoals();
+            // TODO: this should be called on added to world
             this.registerSpecialGoals();
         }
 
@@ -218,6 +224,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (nbt.contains("state")) this.setState(nbt.getByte("state"));
 
         ContainerHelper.loadAllItems(nbt, this.itemStacks);
+
+        // TODO: fix entities having their health set to 20 if it was lower when saving
     }
 
     private void setupAnimationStates() {
@@ -263,9 +271,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     @Override
     protected void registerGoals() {
-    }
-
-    private void registerCommonGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
 //        this.goalSelector.addGoal(1, new RetreatGoal(this));
         this.goalSelector.addGoal(2, new GunAttackGoal(this));
@@ -353,6 +358,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     private void setState(byte state) {
         this.entityData.set(STATE, state);
+    }
+
+    public float getGunAttackRadiusSqr() {
+        return this.currentGunAttackRadiusSqr;
     }
 
     ///////////////////////////////////////////////////////
