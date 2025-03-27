@@ -17,6 +17,7 @@ import java.util.EnumSet;
 import java.util.Objects;
 
 public class GunAttackGoal extends Goal {
+    // Entities should shoot a little further than their weapon's effective range
     private static final float EFFECTIVE_RANGE_MULT = 2.0f;
     private static final int ATTACK_COOLDOWN = 40;
 
@@ -25,6 +26,9 @@ public class GunAttackGoal extends Goal {
     private final float attackRadiusSqr;
     private int lastAttackTick = 0;
     private boolean isAimingAtHead = false;
+
+    private float bulletPitch;
+    private float bulletYaw;
 
     public GunAttackGoal(SwatEntity shooter) {
         this.shooter = shooter;
@@ -71,21 +75,20 @@ public class GunAttackGoal extends Goal {
         }
         this.shooter.getNavigation().stop();
 
-        RandomSource rng = this.shooter.getRandom();
-        double lookOffset = (3 - this.shooter.level().getDifficulty().getId() + 2) * 0.15;
-        double lookX = target.getX() + Mth.nextDouble(rng, -lookOffset, lookOffset);
-        double lookZ = target.getZ() + Mth.nextDouble(rng, -lookOffset, lookOffset);
-        double lookY = (this.isAimingAtHead ? target.getEyeY() : getBodyY(target)) + Mth.nextDouble(rng, -lookOffset, lookOffset);
-        this.shooter.getLookControl().setLookAt(lookX, lookY, lookZ);
+        double targetX = target.getX();
+        double targetY = this.isAimingAtHead ? target.getEyeY() : getBodyY(target);
+        double targetZ = target.getZ();
+
+        this.shooter.getLookControl().setLookAt(targetX, targetY, targetZ);
 
         if (this.shooter.tickCount - lastAttackTick < ATTACK_COOLDOWN) return;
         lastAttackTick = this.shooter.tickCount;
 
         this.isAimingAtHead = this.shooter.getRandom().nextFloat() < this.shooter.getSpecialty().getHeadAimChance();
 
-        // TODO: instead of making entity look at the place they are about to shoot, calculate pitch and yaw
-        //  while looking at head or body
-        ShootResult result = this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
+        this.computeBulletPitchYaw(targetX, targetY, targetZ);
+        ShootResult result = this.shooter.shoot(() -> this.bulletPitch, () -> this.bulletYaw);
+        this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
         if (result == ShootResult.NO_AMMO) {
             this.shooter.reload();
         }
@@ -94,6 +97,29 @@ public class GunAttackGoal extends Goal {
     @Override
     public boolean requiresUpdateEveryTick() {
         return true;
+    }
+
+    private void computeBulletPitchYaw(double targetX, double targetY, double targetZ) {
+        RandomSource rng = this.shooter.getRandom();
+        double lookOffset = (3 - this.shooter.level().getDifficulty().getId() + 2) * 0.15;
+        targetX += Mth.nextDouble(rng, -lookOffset, lookOffset);
+        targetY += Mth.nextDouble(rng, -lookOffset, lookOffset);
+        targetZ += Mth.nextDouble(rng, -lookOffset, lookOffset);
+        double lookX = targetX - this.shooter.getX();
+        double lookZ = targetZ - this.shooter.getZ();
+        double lookY = targetY - this.shooter.getEyeY();
+        double lookD = Math.sqrt(lookX * lookX + lookZ * lookZ);
+        float bulletYaw = (float) (Mth.atan2(lookZ, lookX) * Mth.RAD_TO_DEG) - 90.0f;
+        float bulletPitch = (float) (-(Mth.atan2(lookY, lookD) * Mth.RAD_TO_DEG));
+        this.bulletYaw = rotateTowards(this.shooter.getYHeadRot(), bulletYaw, this.shooter.getHeadRotSpeed());
+        this.bulletPitch = rotateTowards(this.shooter.getXRot(), bulletPitch, this.shooter.getMaxHeadXRot());
+    }
+
+    // Adapted from LookControl
+    private static float rotateTowards(float from, float to, float max) {
+        float f = Mth.degreesDifference(from, to);
+        f =  Mth.clamp(f, -max, max);
+        return from + f;
     }
 
     private static double getBodyY(Entity entity) {
