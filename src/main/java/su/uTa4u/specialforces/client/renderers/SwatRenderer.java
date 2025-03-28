@@ -16,7 +16,7 @@ import su.uTa4u.specialforces.entities.SwatEntity;
 @OnlyIn(Dist.CLIENT)
 public class SwatRenderer extends HumanoidMobRenderer<SwatEntity, SwatModel> {
     public SwatRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx, new SwatModel(ctx.bakeLayer(ModModelLayers.SWAT)), 0.5F);
+        super(ctx, new SwatModel(ctx.bakeLayer(ModModelLayers.SWAT)), 0.5f);
     }
 
     @NotNull
@@ -26,19 +26,29 @@ public class SwatRenderer extends HumanoidMobRenderer<SwatEntity, SwatModel> {
     }
 
     @Override
-    protected void setupRotations(SwatEntity entity, PoseStack poseStack, float ageInTicks, float rotationYaw, float partialTicks) {
-        // Taken from PlayerRenderer
+    protected void setupRotations(SwatEntity entity, @NotNull PoseStack poseStack, float ageInTicks, float rotationYaw, float partialTicks) {
+        // Adapted from PlayerRenderer and LivingEntityRenderer
         float f = entity.getSwimAmount(partialTicks);
         float f3;
         float f2;
-        super.setupRotations(entity, poseStack, ageInTicks, rotationYaw, partialTicks);
         if (f > 0.0f) {
+            super.setupRotations(entity, poseStack, ageInTicks, rotationYaw, partialTicks);
             f3 = !entity.isInWater() && !entity.isInFluidType((fluidType, height) -> entity.canSwimInFluidType(fluidType)) ? -90.0F : -90.0F - entity.getXRot();
-            f2 = Mth.lerp(f, 0.0F, f3);
+            f2 = Mth.lerp(f, 0.0f, f3);
             poseStack.mulPose(Axis.XP.rotationDegrees(f2));
             if (entity.isVisuallySwimming()) {
-                poseStack.translate(0.0F, -1.0F, 0.3F);
+                poseStack.translate(0.0f, -1.0f, 0.3f);
             }
+        } else if (entity.getState() == SwatEntity.STATE_DOWN) {
+            poseStack.mulPose(Axis.YN.rotationDegrees(rotationYaw + 180.0f));
+            poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+            poseStack.translate(0.0f, -1.0f, 0.0f);
+        } else if (entity.getState() == SwatEntity.STATE_DEAD) {
+            poseStack.mulPose(Axis.YN.rotationDegrees(rotationYaw + 180.0f));
+            poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
+            poseStack.translate(0.0f, -1.0f, 0.0f);
+        } else {
+            super.setupRotations(entity, poseStack, ageInTicks, rotationYaw, partialTicks);
         }
     }
 }

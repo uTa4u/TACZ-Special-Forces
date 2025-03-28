@@ -1,7 +1,7 @@
 {
   "item.taczsf.swat_spawn_egg": "Яйцо призыва спецназовца",
 
-
+  "entity.taczsf.swatgeneric": "Агент спецназа",
 
   "entity.taczsf.commander": "Командир",
   "entity.taczsf.assaulter": "Штурмовик",

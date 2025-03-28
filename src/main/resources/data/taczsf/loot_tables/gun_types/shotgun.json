@@ -1,0 +1,30 @@
+{
+  "type": "empty",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/db_short"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/db_long"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/aa12"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m870"
+        }
+      ]
+    }
+  ]
+}

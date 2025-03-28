@@ -1,0 +1,30 @@
+{
+  "type": "empty",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/ai_awp"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m95"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m107"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m700"
+        }
+      ]
+    }
+  ]
+}

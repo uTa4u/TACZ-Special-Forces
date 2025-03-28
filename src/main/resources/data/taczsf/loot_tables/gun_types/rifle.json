@@ -1,0 +1,75 @@
+{
+  "type": "empty",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m4a1"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/sks_tactical"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/type_81"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m16a4"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/m16a1"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/mk14"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/ak47"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/hk_g3"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/aug"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/qbz_95"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/hk416d"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/scar_h"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/scar_l"
+        }
+      ]
+    }
+  ]
+}
