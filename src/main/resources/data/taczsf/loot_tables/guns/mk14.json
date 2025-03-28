@@ -11,14 +11,14 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{GunId:\"tacz:mk14\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
+              "tag": "{GunId:\"tacz:mk14\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:10}"
             }
           ]
         }
       ]
     },
     {
-      "rolls": 8,
+      "rolls": 4,
       "entries": [
         {
           "type": "minecraft:item",
@@ -27,13 +27,13 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{AmmoId:\"tacz:762x39\"}"
+              "tag": "{AmmoId:\"tacz:308\"}"
             },
             {
               "function": "minecraft:set_count",
               "count": {
-                  "min": 15,
-                  "max": 60
+                  "min": 12,
+                  "max": 48
               }
             }
           ]

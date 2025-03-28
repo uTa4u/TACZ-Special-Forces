@@ -11,14 +11,14 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{GunId:\"tacz:rpk\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
+              "tag": "{GunId:\"tacz:rpk\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:40}"
             }
           ]
         }
       ]
     },
     {
-      "rolls": 8,
+      "rolls": 11,
       "entries": [
         {
           "type": "minecraft:item",

@@ -11,7 +11,7 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{GunId:\"tacz:aug\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
+              "tag": "{GunId:\"tacz:aug\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:30}"
             }
           ]
         }
@@ -27,7 +27,7 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{AmmoId:\"tacz:762x39\"}"
+              "tag": "{AmmoId:\"tacz:556x45\"}"
             },
             {
               "function": "minecraft:set_count",

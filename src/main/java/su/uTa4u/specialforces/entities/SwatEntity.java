@@ -36,7 +36,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParamSet;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
@@ -97,7 +98,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 .build();
         // TODO: place item in inventory and take it in hand
         //  copy methods from Inventory
-        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
+//        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
         this.tacz$data.currentGunItem = () -> gun;
         Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
         if (gunIndexOptional.isEmpty()) {
@@ -111,7 +112,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
         this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
-        level.getServer().getLootData().getLootTable(Util.getResource("spawn_inv/commander")).fill(this, new LootParams.Builder(level).create(new LootContextParamSet.Builder().build()), this.tickCount);
+        // TODO: implement generateInventory in terns of LootTable#getRandomItems
+        this.generateInventory();
+        // TODO: organize inventory (weapon slot 0 hotbar, pistol slot 1 etc.)
+        // this.organizeInventory();
+        // TODO: give all loot table pools names
 
         this.copySpecialAttributes();
 
@@ -293,6 +298,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private void copySpecialAttributes() {
         this.getAttributes().assignValues(this.getSpecialty().getAttributes());
         this.setHealth(this.getMaxHealth());
+    }
+
+    private void generateInventory() {
+        Level level = this.level();
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        LootTable lootTable = serverLevel.getServer().getLootData().getLootTable(this.getSpecialty().getLootTable());
+        LootParams lootParams = new LootParams.Builder(serverLevel).create(LootContextParamSets.EMPTY);
+        lootTable.fill(this, lootParams, this.tickCount);
     }
 
     @Override
@@ -543,8 +556,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     // Adapted from AbstractMinecartContainer and ContainerEntity
 
-    // 2 * InventorySlots + ArmorSlots + OffhandSlot
-    public static final int SWAT_INVENTORY_SIZE = 36 + 36 + 4 + 1;
+    // TODO: re-add armor and offhand slots
+    // InventorySlots + ArmorSlots + OffhandSlot
+    public static final int SWAT_INVENTORY_SIZE = 36; // + 4 + 1;
     private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
     private final NonNullList<ItemStack> itemStacks;
     private LazyOptional<?> itemHandler;
@@ -617,6 +631,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (!itemStack.isEmpty() && itemStack.getCount() > this.getMaxStackSize()) {
             itemStack.setCount(this.getMaxStackSize());
         }
+    }
+
+    @Override
+    public boolean canPlaceItem(int slot, @NotNull ItemStack itemStacks) {
+        return false;
     }
 
     @Override

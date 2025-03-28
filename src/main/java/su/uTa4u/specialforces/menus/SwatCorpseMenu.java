@@ -1,6 +1,5 @@
 package su.uTa4u.specialforces.menus;
 
-import com.mojang.datafixers.util.Pair;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -45,6 +44,7 @@ public class SwatCorpseMenu extends AbstractContainerMenu {
         }
 
         // Add swat slots
+        slot = 0;
         for (i = 0; i < 9; ++i) {
             // Swat hotbar 36 - 44
             this.addSlot(new Slot(container, slot++, 8 + i * 18, 100));
@@ -56,34 +56,35 @@ public class SwatCorpseMenu extends AbstractContainerMenu {
             }
         }
 
-        for (i = 0; i < 4; ++i) {
-            // Swat armor 72 - 75
-            final EquipmentSlot equipmentslot = ARMOR_SLOTS[i];
-            this.addSlot(new Slot(container, slot++, 8 + i * 18, 16) {
-                @Override
-                public boolean mayPlace(@NotNull ItemStack itemStack) {
-                    return itemStack.canEquip(equipmentslot, null);
-                }
-
-                @Override
-                public int getMaxStackSize() {
-                    return 1;
-                }
-
-                @Override
-                public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
-                    return Pair.of(InventoryMenu.BLOCK_ATLAS, EMPTY_ARMOR_SLOTS[equipmentslot.getIndex()]);
-                }
-            });
-        }
-
-        // Swat offhand 76
-        this.addSlot(new Slot(container, slot, 98, 16) {
-            @Override
-            public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
-                return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
-            }
-        });
+        // TODO: re-add armor and offhand slots
+//        for (i = 0; i < 4; ++i) {
+//            // Swat armor 72 - 75
+//            final EquipmentSlot equipmentslot = ARMOR_SLOTS[i];
+//            this.addSlot(new Slot(container, slot++, 8 + i * 18, 16) {
+//                @Override
+//                public boolean mayPlace(@NotNull ItemStack itemStack) {
+//                    return itemStack.canEquip(equipmentslot, null);
+//                }
+//
+//                @Override
+//                public int getMaxStackSize() {
+//                    return 1;
+//                }
+//
+//                @Override
+//                public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
+//                    return Pair.of(InventoryMenu.BLOCK_ATLAS, EMPTY_ARMOR_SLOTS[equipmentslot.getIndex()]);
+//                }
+//            });
+//        }
+//
+//        // Swat offhand 76
+//        this.addSlot(new Slot(container, slot, 98, 16) {
+//            @Override
+//            public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
+//                return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
+//            }
+//        });
     }
 
     @NotNull

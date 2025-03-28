@@ -68,12 +68,14 @@ public enum Specialty {
     private final ResourceLocation skin;
     private final float headAimChance;
     private final AttributeMap attributes;
+    private final ResourceLocation lootTable;
 
     Specialty(String name, float headAimChance, AttributeSupplier supplier) {
         this.name = name;
         this.skin = Util.getResource("textures/entity/" + name + ".png");
         this.headAimChance = headAimChance;
         this.attributes = initAttributeMap(supplier);
+        this.lootTable = Util.getResource("spawn_inv/" + name);
     }
 
     public static Specialty getRandomSpecialty() {
@@ -94,6 +96,10 @@ public enum Specialty {
 
     public AttributeMap getAttributes() {
         return this.attributes;
+    }
+
+    public ResourceLocation getLootTable() {
+        return this.lootTable;
     }
 
     private static AttributeMap initAttributeMap(AttributeSupplier supplier) {

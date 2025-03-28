@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import math
 
 templateFilePath = "./gunLootTableTemplate.json"
 
@@ -16,6 +17,7 @@ ammoDataSuffixLen = len(ammoDataSuffix)
 
 taczPrefix = "tacz:"
 
+# TODO: vary mag counts depending on gun type
 # Variables
 MIN_MAG_COUNT = 4
 MAX_MAG_COUNT = 6
@@ -39,7 +41,7 @@ def main():
     # Generate gun loot tables
     for filename in os.scandir(gunDataSrc):
         # Ignore errors (hieroglyphs)
-        with open(gunDataSrc + "ak47_data.json", "r", errors="ignore") as gunDataFile:
+        with open(filename.path, "r", errors="ignore") as gunDataFile:
             # Remove comments (invalid json)
             fixedGunDataStr = re.sub('(//.*)|(/\\*(.|\n)*\\*/)', '', gunDataFile.read())
             gunData = json.loads(fixedGunDataStr)
@@ -47,12 +49,12 @@ def main():
             gunName = filename.name[0:-gunDataSuffixLen]
             magazineSize = gunData["ammo_amount"]
 
-            # Nothing breaks if we set fire mode to `burst` for every gun, otherwise:
-            # GunFireMode: "BURST" if "burst" in gunData["fire_mode"] else "SEMI",
+            burstMode = "BURST" if "burst" in gunData["fire_mode"] else "SEMI"
+
             _gunNbt = ('\"{' + f"""
                 GunId: \\"{taczPrefix + gunName}\\",
-                GunFireMode: \\"BURST\\",
-                gunCurrentAmmoCount: {magazineSize}
+                GunFireMode: \\"{burstMode}\\",
+                GunCurrentAmmoCount: {magazineSize}
             """ + '}\"').replace('\n', '').replace(' ', '')
 
             ammoId = gunData["ammo"]
@@ -64,7 +66,7 @@ def main():
             _ammoCountMin = ammoStackSizes[ammoId] * 0.25
             _ammoCountMax = ammoStackSizes[ammoId] * 1
             # We want enough rolls so that minimum ammo count is guaranteed
-            _ammoRollCount = MIN_MAG_COUNT * magazineSize / _ammoCountMin
+            _ammoRollCount = math.ceil(MIN_MAG_COUNT * magazineSize / _ammoCountMin)
 
             gunLootTable = template % locals()
 

@@ -1,0 +1,35 @@
+{
+  "type": "empty",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/uzi"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/vector45"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/hk_mp5a5"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/ump45"
+        },
+        {
+          "type": "minecraft:loot_table",
+          "weight": 1,
+          "name": "taczsf:guns/p90"
+        }
+      ]
+    }
+  ]
+}

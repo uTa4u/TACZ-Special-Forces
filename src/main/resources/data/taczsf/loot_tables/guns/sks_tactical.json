@@ -11,14 +11,14 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{GunId:\"tacz:sks_tactical\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
+              "tag": "{GunId:\"tacz:sks_tactical\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:10}"
             }
           ]
         }
       ]
     },
     {
-      "rolls": 8,
+      "rolls": 3,
       "entries": [
         {
           "type": "minecraft:item",
