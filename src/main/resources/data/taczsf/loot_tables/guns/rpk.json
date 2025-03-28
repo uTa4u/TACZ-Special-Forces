@@ -11,7 +11,7 @@
           "functions": [
             {
               "function": "minecraft:set_nbt",
-              "tag": "{GunId:\"tacz:ak47\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
+              "tag": "{GunId:\"tacz:rpk\",GunFireMode:\"BURST\",gunCurrentAmmoCount:30}"
             }
           ]
         }
