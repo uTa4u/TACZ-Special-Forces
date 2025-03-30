@@ -6,7 +6,26 @@
       "loot_table_id": "taczsf:spawn_inv/commander"
     }
   ],
-  "item": "minecraft:golden_helmet",
-  "count": 1,
-  "nbt": ""
+  "entries": [
+    {
+      "item": "minecraft:golden_helmet"
+    },
+    {
+      "item": "minecraft:golden_chestplate"
+    },
+    {
+      "item": "minecraft:golden_leggings"
+    },
+    {
+      "item": "minecraft:golden_boots"
+    },
+    {
+      "item": "tacz:modern_kinetic_gun",
+      "nbt": {
+        "GunId": "tacz:rpg7",
+        "GunFireMode": "SEMI",
+        "GunCurrentAmmoCount": 1
+      }
+    }
+  ]
 }
