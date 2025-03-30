@@ -20,6 +20,7 @@ import su.uTa4u.specialforces.client.renderers.SwatRenderer;
 import su.uTa4u.specialforces.client.screens.SwatCorpseScreen;
 import su.uTa4u.specialforces.entities.ModEntities;
 import su.uTa4u.specialforces.entities.SwatEntity;
+import su.uTa4u.specialforces.glms.ModLootModifiers;
 import su.uTa4u.specialforces.items.ModItems;
 import su.uTa4u.specialforces.menus.ModMenuTypes;
 
@@ -34,6 +35,7 @@ public class SpecialForces {
         ModItems.ITEMS.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
         ModMenuTypes.MENU_TYPES.register(modBus);
+        ModLootModifiers.LOOT_MODIFIER_SERIALIZERS.register(modBus);
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)

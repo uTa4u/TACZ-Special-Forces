@@ -1,0 +1,12 @@
+{
+  "type": "taczsf:add_item",
+  "conditions": [
+    {
+      "condition": "forge:loot_table_id",
+      "loot_table_id": "taczsf:spawn_inv/commander"
+    }
+  ],
+  "item": "minecraft:golden_helmet",
+  "count": 1,
+  "nbt": ""
+}
