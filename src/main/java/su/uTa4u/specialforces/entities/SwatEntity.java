@@ -1,5 +1,6 @@
 package su.uTa4u.specialforces.entities;
 
+import com.google.common.collect.ImmutableList;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
@@ -11,6 +12,7 @@ import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -44,6 +46,7 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import su.uTa4u.specialforces.ModTags;
 import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
@@ -51,6 +54,7 @@ import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -58,7 +62,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final EntityDataAccessor<Byte> STATE = SynchedEntityData.defineId(SwatEntity.class, EntityDataSerializers.BYTE);
-    // Entities should shoot a little further than their weapon's effective range
+    // Entities shoot a little further than their weapon's effective range
     private static final float EFFECTIVE_RANGE_MULT = 2.0f;
     public static final byte STATE_ALIVE = 0;
     public static final byte STATE_DOWN = 1;
@@ -68,15 +72,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     private float currentGunAttackRadiusSqr;
 
-    // TODO:
-    //  3. give supplies on spawn
 //    public final AnimationState idleAnimationState = new AnimationState();
 //    private int idleAnimationTimeout = 0;
 
     protected SwatEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
-        this.itemStacks = NonNullList.withSize(SWAT_INVENTORY_SIZE, ItemStack.EMPTY);
-        this.itemHandler = LazyOptional.of(() -> new InvWrapper(this));
     }
 
     @Nullable
@@ -112,10 +112,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
         this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
-        // TODO: implement generateInventory in terns of LootTable#getRandomItems
         this.generateInventory();
-        // TODO: organize inventory (weapon slot 0 hotbar, pistol slot 1 etc.)
-        // this.organizeInventory();
         // TODO: give all loot table pools names
 
         this.copySpecialAttributes();
@@ -144,6 +141,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         // TODO: make this into a command
         if (!level.isClientSide && player.isCreative() && this.isInvulnerable() && player.getMainHandItem().is(Items.WOODEN_AXE)) {
             this.remove(RemovalReason.KILLED);
+            return InteractionResult.SUCCESS;
         }
 
         if (this.getState() == STATE_DEAD) {
@@ -218,7 +216,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         nbt.putString("specialty", this.getSpecialty().getName());
         nbt.putByte("state", this.getState());
 
-        ContainerHelper.saveAllItems(nbt, this.itemStacks);
+        ContainerHelper.saveAllItems(nbt, this.items);
     }
 
     @Override
@@ -229,7 +227,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
         if (nbt.contains("state")) this.setState(nbt.getByte("state"));
 
-        ContainerHelper.loadAllItems(nbt, this.itemStacks);
+        ContainerHelper.loadAllItems(nbt, this.items);
 
         // TODO: fix entities having their health set to 20 if it was lower when saving
     }
@@ -305,7 +303,31 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (!(level instanceof ServerLevel serverLevel)) return;
         LootTable lootTable = serverLevel.getServer().getLootData().getLootTable(this.getSpecialty().getLootTable());
         LootParams lootParams = new LootParams.Builder(serverLevel).create(LootContextParamSets.EMPTY);
-        lootTable.fill(this, lootParams, this.tickCount);
+
+        ObjectArrayList<ItemStack> itemStacks = lootTable.getRandomItems(lootParams);
+        for (int i = itemStacks.size() - 1; i >= 0; --i) {
+            ItemStack itemStack = itemStacks.remove(i);
+            if (itemStack.is(ModTags.Items.RULE_HOTBAR) && this.getFreeHotbarIndex() != -1) {
+                this.items.set(this.getFreeHotbarIndex(), itemStack);
+            } else if (itemStack.canEquip(EquipmentSlot.HEAD, this) && this.armor.get(0).isEmpty()) {
+                this.armor.set(0, itemStack);
+            } else if (itemStack.canEquip(EquipmentSlot.CHEST, this) && this.armor.get(1).isEmpty()) {
+                this.armor.set(1, itemStack);
+            } else if (itemStack.canEquip(EquipmentSlot.LEGS, this) && this.armor.get(2).isEmpty()) {
+                this.armor.set(2, itemStack);
+            } else if (itemStack.canEquip(EquipmentSlot.FEET, this) && this.armor.get(3).isEmpty()) {
+                this.armor.set(3, itemStack);
+            } else if (itemStack.is(ModTags.Items.RULE_OFFHAND) && this.offhand.get(0).isEmpty()) {
+                this.offhand.set(0, itemStack);
+            } else {
+                // TODO: shuffle and split itemstacks like how LootTable#fill does
+                int index = this.getFreeInvIndex();
+                if (index != -1) {
+                   this.items.set(index, itemStack);
+                }
+            }
+        }
+
     }
 
     @Override
@@ -556,12 +578,19 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     // Adapted from AbstractMinecartContainer and ContainerEntity
 
-    // TODO: re-add armor and offhand slots
-    // InventorySlots + ArmorSlots + OffhandSlot
-    public static final int SWAT_INVENTORY_SIZE = 36; // + 4 + 1;
-    private final SimpleContainer inventory = new SimpleContainer(SWAT_INVENTORY_SIZE);
-    private final NonNullList<ItemStack> itemStacks;
-    private LazyOptional<?> itemHandler;
+    public static final int SWAT_INVENTORY_SIZE = 36;
+    public static final int SWAT_ARMOR_SIZE = 4;
+    public static final int SWAT_OFFHAND_SIZE = 1;
+    public static final int SWAT_CONTAINER_SIZE = SWAT_INVENTORY_SIZE + SWAT_ARMOR_SIZE + SWAT_OFFHAND_SIZE;
+    private static final int HOTBAR_INDEX_START = 0;
+    private static final int HOTBAR_INDEX_END = 8;
+    private static final int INV_INDEX_START = 9;
+    private static final int INV_INDEX_END = 35;
+    private final NonNullList<ItemStack> items = NonNullList.withSize(SWAT_INVENTORY_SIZE, ItemStack.EMPTY);
+    private final NonNullList<ItemStack> armor = NonNullList.withSize(SWAT_ARMOR_SIZE, ItemStack.EMPTY);
+    private final NonNullList<ItemStack> offhand = NonNullList.withSize(SWAT_OFFHAND_SIZE, ItemStack.EMPTY);
+    private final List<NonNullList<ItemStack>> compartments = ImmutableList.of(this.items, this.armor, this.offhand);
+    private LazyOptional<?> itemHandler = LazyOptional.of(() -> new InvWrapper(this));
 
     @NotNull
     @Override
@@ -581,56 +610,74 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.itemHandler = LazyOptional.of(() -> new InvWrapper(this));
     }
 
-    public NonNullList<ItemStack> getItemStacks() {
-        return this.itemStacks;
-    }
-
     @Override
     public int getContainerSize() {
-        return SWAT_INVENTORY_SIZE;
+        return SWAT_CONTAINER_SIZE;
     }
 
     @Override
     public boolean isEmpty() {
-        Iterator<ItemStack> iter = this.getItemStacks().iterator();
-        ItemStack itemstack;
-        do {
-            if (!iter.hasNext()) return true;
-            itemstack = iter.next();
-        } while (itemstack.isEmpty());
-        return false;
+        for (NonNullList<ItemStack> compartment : this.compartments) {
+            for (ItemStack itemStack : compartment) {
+                if (!itemStack.isEmpty()) return false;
+            }
+        }
+        return true;
     }
 
     @NotNull
     @Override
-    public ItemStack getItem(int slot) {
-        return this.itemStacks.get(slot);
+    public ItemStack getItem(int index) {
+        NonNullList<ItemStack> compartment = this.getCompartment(index);
+        return compartment == null ? ItemStack.EMPTY : compartmentSafeGet(compartment, index);
     }
 
     @NotNull
     @Override
-    public ItemStack removeItem(int slot, int count) {
-        return ContainerHelper.removeItem(this.itemStacks, slot, count);
+    public ItemStack removeItem(int index, int count) {
+        if (count <= 0) return ItemStack.EMPTY;
+        NonNullList<ItemStack> compartment = this.getCompartment(index);
+        if (compartment == null) return ItemStack.EMPTY;
+        ItemStack itemStack = compartmentSafeGet(compartment, index);
+        if (itemStack.isEmpty()) return ItemStack.EMPTY;
+        return itemStack.split(count);
     }
 
     @NotNull
     @Override
-    public ItemStack removeItemNoUpdate(int slot) {
-        ItemStack itemstack = this.itemStacks.get(slot);
-        if (itemstack.isEmpty()) {
-            return ItemStack.EMPTY;
-        } else {
-            this.itemStacks.set(slot, ItemStack.EMPTY);
-            return itemstack;
+    public ItemStack removeItemNoUpdate(int index) {
+        NonNullList<ItemStack> compartment = this.getCompartment(index);
+        if (compartment == null) return ItemStack.EMPTY;
+        ItemStack itemStack = compartmentSafeGet(compartment, index);
+        if (itemStack.isEmpty()) return ItemStack.EMPTY;
+        compartment.set(index, ItemStack.EMPTY);
+        return itemStack;
+    }
+
+    @Override
+    public void setItem(int index, @NotNull ItemStack itemStack) {
+        NonNullList<ItemStack> compartment = this.getCompartment(index);
+        if (compartment != null) {
+            compartmentSafeSet(compartment, index, itemStack);
         }
     }
 
-    @Override
-    public void setItem(int slot, @NotNull ItemStack itemStack) {
-        this.itemStacks.set(slot, itemStack);
-        if (!itemStack.isEmpty() && itemStack.getCount() > this.getMaxStackSize()) {
-            itemStack.setCount(this.getMaxStackSize());
+    private int getFreeHotbarIndex() {
+        for (int i = HOTBAR_INDEX_START; i <= HOTBAR_INDEX_END; ++i) {
+            if (this.items.get(i).isEmpty()) {
+                return i;
+            }
         }
+        return -1;
+    }
+
+    private int getFreeInvIndex() {
+        for (int i = INV_INDEX_START; i <= INV_INDEX_END; ++i) {
+            if (this.items.get(i).isEmpty()) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     @Override
@@ -649,12 +696,45 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     @Override
     public void clearContent() {
-        this.itemStacks.clear();
+        for (List<ItemStack> list : this.compartments) {
+            list.clear();
+        }
+    }
+
+    // Common code for finding NonNullList (items / armor / offhand) by slot index
+    @Nullable
+    private NonNullList<ItemStack> getCompartment(int index) {
+        NonNullList<ItemStack> ret = null;
+        NonNullList<ItemStack> compartment;
+        for (Iterator<NonNullList<ItemStack>> iter = this.compartments.iterator(); iter.hasNext(); index -= compartment.size()) {
+            compartment = iter.next();
+            if (index < compartment.size()) {
+                ret = compartment;
+                break;
+            }
+        }
+        return ret;
+    }
+
+    // Most of the container code in here was adapted from Inventory class used by player.
+    // In Inventory methods somehow don't break even when they try to access index 36 of armor list (size 4)
+    // I don't feel like finding out why and how, so we get this...
+    private static ItemStack compartmentSafeGet(NonNullList<ItemStack> compartment, int index) {
+        return compartment.get(index % compartment.size());
+    }
+
+    private static void compartmentSafeSet(NonNullList<ItemStack> compartment, int index, ItemStack itemStack) {
+        compartment.set(index % compartment.size(), itemStack);
+    }
+
+    @Override
+    public int getMaxStackSize() {
+        return Container.super.getMaxStackSize();
     }
 
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, @NotNull Inventory playerInventory, @NotNull Player player) {
-        return new SwatCorpseMenu(containerId, playerInventory, this.inventory);
+        return new SwatCorpseMenu(containerId, playerInventory, this);
     }
 }

@@ -1,0 +1,20 @@
+{
+  "replace": false,
+  "values": [
+    "tacz:modern_kinetic_gun",
+    "minecraft:potion",
+    "minecraft:splash_potion",
+    "minecraft:baked_potato",
+    "minecraft:cooked_beef",
+    "minecraft:cooked_porkchop",
+    "minecraft:cooked_mutton",
+    "minecraft:cooked_chicken",
+    "minecraft:cooked_rabbit",
+    "minecraft:cooked_cod",
+    "minecraft:cooked_salmon",
+    "minecraft:bread",
+    "minecraft:cookie",
+    "minecraft:mushroom_stew",
+    "minecraft:rabbit_stew"
+  ]
+}

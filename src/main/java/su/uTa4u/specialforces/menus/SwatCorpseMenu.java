@@ -1,5 +1,6 @@
 package su.uTa4u.specialforces.menus;
 
+import com.mojang.datafixers.util.Pair;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -17,11 +18,14 @@ public class SwatCorpseMenu extends AbstractContainerMenu {
     private static final ResourceLocation[] EMPTY_ARMOR_SLOTS = new ResourceLocation[]{InventoryMenu.EMPTY_ARMOR_SLOT_BOOTS, InventoryMenu.EMPTY_ARMOR_SLOT_LEGGINGS, InventoryMenu.EMPTY_ARMOR_SLOT_CHESTPLATE, InventoryMenu.EMPTY_ARMOR_SLOT_HELMET};
     private static final EquipmentSlot[] ARMOR_SLOTS = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
+    private static final int PLAYER_SLOTS_START = 41;
+    private static final int PLAYER_SLOTS_END = 76;
+
     private final Container container;
 
     // Client side constructor
     public SwatCorpseMenu(int containerId, Inventory playerInventory) {
-        this(containerId, playerInventory, new SimpleContainer(SwatEntity.SWAT_INVENTORY_SIZE));
+        this(containerId, playerInventory, new SimpleContainer(SwatEntity.SWAT_CONTAINER_SIZE));
     }
 
     // Server side constructor
@@ -29,9 +33,61 @@ public class SwatCorpseMenu extends AbstractContainerMenu {
         super(ModMenuTypes.SWAT_CORPSE.get(), containerId);
         this.container = container;
 
-        // Add player slots
         int slot = 0;
         int i;
+        // Add swat slots
+        for (i = 0; i < 9; ++i) {
+            // Swat hotbar 0 - 8
+            this.addSlot(new Slot(container, slot++, 8 + i * 18, 100) {
+                @Override
+                public boolean mayPlace(@NotNull ItemStack itemStack) {
+                    return false;
+                }
+            });
+        }
+        for (i = 0; i < 3; ++i) {
+            for (int j = 0; j < 9; ++j) {
+                // Swat inventory 9 - 35
+                this.addSlot(new Slot(container, slot++, 8 + j * 18, 42 + i * 18) {
+                    @Override
+                    public boolean mayPlace(@NotNull ItemStack itemStack) {
+                        return false;
+                    }
+                });
+            }
+        }
+
+        for (i = 0; i < 4; ++i) {
+            // Swat armor 36 - 39
+            final EquipmentSlot equipmentslot = ARMOR_SLOTS[i];
+            this.addSlot(new Slot(container, slot++, 8 + i * 18, 16) {
+                @Override
+                public boolean mayPlace(@NotNull ItemStack itemStack) {
+                    return false;
+                }
+
+                @Override
+                public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
+                    return Pair.of(InventoryMenu.BLOCK_ATLAS, EMPTY_ARMOR_SLOTS[equipmentslot.getIndex()]);
+                }
+            });
+        }
+
+        // Swat offhand 40
+        this.addSlot(new Slot(container, slot++, 98, 16) {
+            @Override
+            public boolean mayPlace(@NotNull ItemStack itemStack) {
+                return false;
+            }
+
+            @Override
+            public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
+                return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
+            }
+        });
+
+        // Add player slots
+        slot = 0;
         for (i = 0; i < 9; ++i) {
             // Player hotbar 0 - 8
             this.addSlot(new Slot(playerInventory, slot++, 8 + i * 18, 188));
@@ -43,55 +99,27 @@ public class SwatCorpseMenu extends AbstractContainerMenu {
             }
         }
 
-        // Add swat slots
-        slot = 0;
-        for (i = 0; i < 9; ++i) {
-            // Swat hotbar 36 - 44
-            this.addSlot(new Slot(container, slot++, 8 + i * 18, 100));
-        }
-        for (i = 0; i < 3; ++i) {
-            for (int j = 0; j < 9; ++j) {
-                // Swat inventory 45 - 71
-                this.addSlot(new Slot(container, slot++, 8 + j * 18, 42 + i * 18));
-            }
-        }
-
-        // TODO: re-add armor and offhand slots
-//        for (i = 0; i < 4; ++i) {
-//            // Swat armor 72 - 75
-//            final EquipmentSlot equipmentslot = ARMOR_SLOTS[i];
-//            this.addSlot(new Slot(container, slot++, 8 + i * 18, 16) {
-//                @Override
-//                public boolean mayPlace(@NotNull ItemStack itemStack) {
-//                    return itemStack.canEquip(equipmentslot, null);
-//                }
-//
-//                @Override
-//                public int getMaxStackSize() {
-//                    return 1;
-//                }
-//
-//                @Override
-//                public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
-//                    return Pair.of(InventoryMenu.BLOCK_ATLAS, EMPTY_ARMOR_SLOTS[equipmentslot.getIndex()]);
-//                }
-//            });
-//        }
-//
-//        // Swat offhand 76
-//        this.addSlot(new Slot(container, slot, 98, 16) {
-//            @Override
-//            public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
-//                return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
-//            }
-//        });
     }
 
     @NotNull
     @Override
-    public ItemStack quickMoveStack(@NotNull Player player, int i) {
-        // https://docs.minecraftforge.net/en/1.20.1/gui/menus/#:~:text=Across%20Minecraft%20implementations%2C%20this%20method%20is%20fairly%20consistent%20in%20its%20logic%3A
-        return ItemStack.EMPTY;
+    public ItemStack quickMoveStack(@NotNull Player player, int index) {
+        ItemStack quickMovedStack = ItemStack.EMPTY;
+        Slot quickMovedSlot = this.slots.get(index);
+        if (quickMovedSlot.hasItem()) {
+            ItemStack rawStack = quickMovedSlot.getItem();
+            quickMovedStack = rawStack.copy();
+            if (quickMovedSlot.container == this.container) {
+                // Moving from container to player inventory
+                if (!this.moveItemStackTo(rawStack, PLAYER_SLOTS_START, PLAYER_SLOTS_END, false)) {
+                    return ItemStack.EMPTY;
+                }
+            } else {
+                // Moving from player inventory to container is disabled
+                return ItemStack.EMPTY;
+            }
+        }
+        return quickMovedStack;
     }
 
     @Override
