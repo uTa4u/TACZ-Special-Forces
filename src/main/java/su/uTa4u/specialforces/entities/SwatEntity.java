@@ -304,6 +304,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         LootTable lootTable = serverLevel.getServer().getLootData().getLootTable(this.getSpecialty().getLootTable());
         LootParams lootParams = new LootParams.Builder(serverLevel).create(LootContextParamSets.EMPTY);
 
+        // TODO: shuffle and split itemstacks like how LootTable#fill does
         ObjectArrayList<ItemStack> itemStacks = lootTable.getRandomItems(lootParams);
         for (int i = itemStacks.size() - 1; i >= 0; --i) {
             ItemStack itemStack = itemStacks.remove(i);
@@ -320,7 +321,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             } else if (itemStack.is(ModTags.Items.RULE_OFFHAND) && this.offhand.get(0).isEmpty()) {
                 this.offhand.set(0, itemStack);
             } else {
-                // TODO: shuffle and split itemstacks like how LootTable#fill does
                 int index = this.getFreeInvIndex();
                 if (index != -1) {
                    this.items.set(index, itemStack);

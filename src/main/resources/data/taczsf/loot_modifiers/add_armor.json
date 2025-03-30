@@ -21,11 +21,11 @@
     },
     {
       "item": "tacz:modern_kinetic_gun",
-      "nbt": {
-        "GunId": "tacz:rpg7",
-        "GunFireMode": "SEMI",
-        "GunCurrentAmmoCount": 1
-      }
+      "nbt": "{GunId:\"tacz:rpg7\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:1}"
+    },
+    {
+      "item": "minecraft:lingering_potion",
+      "nbt": "{Potion:\"healing\"}"
     }
   ]
 }
