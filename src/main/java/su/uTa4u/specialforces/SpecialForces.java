@@ -3,11 +3,16 @@ package su.uTa4u.specialforces;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
+import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -65,6 +70,11 @@ public class SpecialForces {
         @SubscribeEvent
         public static void onEntityAttributeCreationEvent(EntityAttributeCreationEvent event) {
             event.put(ModEntities.SWAT_ENTITY.get(), SwatEntity.createDefaultAttributes().build());
+        }
+
+        @SubscribeEvent(priority = EventPriority.LOW)
+        public static void onSpawnPlacementRegisterEvent(SpawnPlacementRegisterEvent event) {
+            event.register(ModEntities.SWAT_ENTITY.get(), SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mob::checkMobSpawnRules, SpawnPlacementRegisterEvent.Operation.REPLACE);
         }
     }
 }
