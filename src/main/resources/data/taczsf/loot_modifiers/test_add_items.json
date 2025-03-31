@@ -1,5 +1,5 @@
 {
-  "type": "taczsf:add_item",
+  "type": "taczsf:add_items",
   "conditions": [
     {
       "condition": "forge:loot_table_id",

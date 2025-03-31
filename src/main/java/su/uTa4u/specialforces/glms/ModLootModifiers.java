@@ -14,6 +14,6 @@ public class ModLootModifiers {
     static {
         LOOT_MODIFIER_SERIALIZERS = DeferredRegister.create(ForgeRegistries.Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS, SpecialForces.MOD_ID);
 
-        ADD_ITEMS = LOOT_MODIFIER_SERIALIZERS.register("add_item", AddItemModifier.CODEC);
+        ADD_ITEMS = LOOT_MODIFIER_SERIALIZERS.register("add_items", AddItemsModifier.CODEC);
     }
 }

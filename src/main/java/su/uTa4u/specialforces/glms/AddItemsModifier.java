@@ -21,19 +21,19 @@ import org.slf4j.Logger;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AddItemModifier extends LootModifier {
+public class AddItemsModifier extends LootModifier {
     private static final Logger LOGGER = LogUtils.getLogger();
-    public static final Supplier<Codec<AddItemModifier>> CODEC = Suppliers.memoize(() ->
+    public static final Supplier<Codec<AddItemsModifier>> CODEC = Suppliers.memoize(() ->
             RecordCodecBuilder.create((inst) ->
                     LootModifier.codecStart(inst).and(
                             Entry.CODEC.listOf().fieldOf("entries").forGetter(m -> m.entries)
-                    ).apply(inst, AddItemModifier::new)
+                    ).apply(inst, AddItemsModifier::new)
             )
     );
 
     private final List<Entry> entries;
 
-    public AddItemModifier(LootItemCondition[] conditions, List<Entry> entries) {
+    public AddItemsModifier(LootItemCondition[] conditions, List<Entry> entries) {
         super(conditions);
         this.entries = entries;
     }
