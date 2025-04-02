@@ -6,36 +6,31 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import su.uTa4u.specialforces.Mission;
 
 import java.util.*;
 
 public class Observation implements IObservation {
     private static final Set<Block> BLOCKS_UNDER_OBSERVATION = new HashSet<>();
-    private static final Set<EntityType<?>> ENTITIES_UNDER_OBSERVATION = new HashSet<>();
+    private static final Set<EntityType<? extends Entity>> ENTITIES_UNDER_OBSERVATION = new HashSet<>();
 //    protected static final int MISSION_COOLDOWN = 24000 * 2;
-    static final int MISSION_COOLDOWN = 1200;
+    static final int SPAWN_COOLDOWN = 20;
+    static final int MAX_SPAWN_COUNT = 0;
 
     private Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
-    private Map<EntityType<?>, List<UUID>> observedEntities = new HashMap<>();
-    private int lastMissionTick = 0;
+    private Map<EntityType<? extends Entity>, List<UUID>> observedEntities = new HashMap<>();
+    private int lastSpawnTick = 0;
+    private int spawnCount = 0;
+    private Mission swatMission;
 
     Observation() {
         BLOCKS_UNDER_OBSERVATION.forEach( block -> observedBlocks.put(block, new ArrayList<>()));
         ENTITIES_UNDER_OBSERVATION.forEach( entityType -> observedEntities.put(entityType, new ArrayList<>()));
-    }
-
-    @Override
-    public void setLastMissionTick(int tick) {
-        this.lastMissionTick = tick;
-    }
-
-    @Override
-    public int getLastMissionTick() {
-        return this.lastMissionTick;
     }
 
     @Override
@@ -46,7 +41,7 @@ public class Observation implements IObservation {
     }
 
     @Override
-    public void observe(EntityType<?> entityType, UUID uuid) {
+    public void observe(EntityType<? extends Entity> entityType, UUID uuid) {
         if (!this.observedEntities.get(entityType).contains(uuid)) {
             this.observedEntities.get(entityType).add(uuid);
         }
@@ -59,18 +54,39 @@ public class Observation implements IObservation {
     }
 
     @Override
+    public int getLastSpawnTick() {
+        return this.lastSpawnTick;
+    }
+
+    @Override
+    public void setLastSpawnTick(int value) {
+        this.lastSpawnTick = value;
+    }
+
+    @Override
+    public int getSpawnCount() {
+        return this.spawnCount;
+    }
+
+    @Override
+    public void setSpawnCount(int value) {
+        this.spawnCount = value;
+    }
+
+    @Override
     public Map<Block, List<BlockPos>> getObservedBlocks() {
         return this.observedBlocks;
     }
 
     @Override
-    public Map<EntityType<?>, List<UUID>> getObservedEntities() {
+    public Map<EntityType<? extends Entity>, List<UUID>> getObservedEntities() {
         return this.observedEntities;
     }
 
     @Override
     public void copy(IObservation other) {
-        this.lastMissionTick = other.getLastMissionTick();
+        this.lastSpawnTick = other.getLastSpawnTick();
+        this.spawnCount = other.getSpawnCount();
         this.observedBlocks = other.getObservedBlocks();
         this.observedEntities = other.getObservedEntities();
     }
@@ -79,7 +95,7 @@ public class Observation implements IObservation {
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
 
-        nbt.putInt("lastMissionTick", this.lastMissionTick);
+        nbt.putInt("spawnCount", this.spawnCount);
 
         CompoundTag blocksTag = new CompoundTag();
         this.observedBlocks.forEach( (block, list) -> {
@@ -107,7 +123,7 @@ public class Observation implements IObservation {
     @Override
     public void deserializeNBT(CompoundTag nbt) {
 
-        this.lastMissionTick = nbt.getInt("lastMissionTick");
+        this.spawnCount = nbt.getInt("spawnCount");
 
         CompoundTag blocksTag = (CompoundTag) nbt.get("blocks");
         if (blocksTag != null) {

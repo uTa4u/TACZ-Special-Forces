@@ -1,17 +1,12 @@
 package su.uTa4u.specialforces.entities;
 
 import com.google.common.collect.ImmutableList;
-import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
-import com.tacz.guns.api.item.builder.GunItemBuilder;
-import com.tacz.guns.api.item.gun.FireMode;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
-import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
-import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
@@ -49,13 +44,13 @@ import org.jetbrains.annotations.Nullable;
 import su.uTa4u.specialforces.ModTags;
 import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
-import su.uTa4u.specialforces.Util;
+import su.uTa4u.specialforces.capabilities.observation.ObservationManager;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
+import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator, Container, MenuProvider {
@@ -70,13 +65,19 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
 
+    // TODO: entities shouldn't get too close in GunAttackGoal
     private float currentGunAttackRadiusSqr;
+    private Player spawnedFromCap;
 
-//    public final AnimationState idleAnimationState = new AnimationState();
-//    private int idleAnimationTimeout = 0;
-
-    protected SwatEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+    protected SwatEntity(EntityType<SwatEntity> entityType, Level level) {
         super(entityType, level);
+        this.setPersistenceRequired();
+    }
+
+    public static SwatEntity forPlayer(Player player) {
+        SwatEntity entity = new SwatEntity(ModEntities.SWAT_ENTITY.get(), player.level());
+        entity.spawnedFromCap = player;
+        return entity;
     }
 
     @Nullable
@@ -90,47 +91,45 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
         ServerLevel level = levelAccessor.getLevel();
 
-        String gunId = "ak47";
-        ItemStack gun = GunItemBuilder.create()
-                .setId(Util.getTaczResource(gunId))
-                .setAmmoCount(20)
-                .setFireMode(FireMode.BURST)
-                .build();
-        // TODO: place item in inventory and take it in hand
-        //  copy methods from Inventory
-//        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
-        this.tacz$data.currentGunItem = () -> gun;
-        Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
-        if (gunIndexOptional.isEmpty()) {
-            this.remove(RemovalReason.DISCARDED);
-            SpecialForces.LOGGER.error("SwatEntity spawned with an invalid gun and was terminated: " + gunId);
-            return null;
-        }
-        AttachmentCacheProperty prop = new AttachmentCacheProperty();
-        prop.eval(gun, gunIndexOptional.get().getGunData());
-        this.updateCacheProperty(prop);
-        float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
-        this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
+        // TODO:
+        //  create a predicate to choose between 2 gun
+        //  iterate this.items and find a primary weapon
+//        String gunId = "ak47";
+//        ItemStack gun = GunItemBuilder.create()
+//                .setId(Util.getTaczResource(gunId))
+//                .setAmmoCount(20)
+//                .setFireMode(FireMode.BURST)
+//                .build();
+////        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
+//        this.tacz$data.currentGunItem = () -> gun;
+//        Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
+//        if (gunIndexOptional.isEmpty()) {
+//            this.remove(RemovalReason.DISCARDED);
+//            SpecialForces.LOGGER.error("SwatEntity spawned with an invalid gun and was terminated: " + gunId);
+//            return null;
+//        }
+//        AttachmentCacheProperty prop = new AttachmentCacheProperty();
+//        prop.eval(gun, gunIndexOptional.get().getGunData());
+//        this.updateCacheProperty(prop);
+//        float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
+//        this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
 
         this.generateInventory();
-        // TODO: give all loot table pools names
+        // TODO: give all loottables pool names
 
         this.copySpecialAttributes();
 
-        if (!level.isClientSide) {
-            // TODO: this should be called on added to world
-            this.registerSpecialGoals();
-        }
-
         if (this.getSpecialty() != Specialty.COMMANDER) return spawnData;
 
-        // TODO: Spawn allies based on the current mission
-//        Vec3 pos = this.position();
-//        SwatEntity mob1 = new SwatEntity(level, Specialty.SNIPER, pos.x + 1, pos.y, pos.z + 1);
-//        ForgeEventFactory.onFinalizeSpawn(mob1, level, difficulty, MobSpawnType.MOB_SUMMONED, null, null);
-//        level.addFreshEntity(mob1);
-
         return spawnData;
+    }
+
+    @Override
+    public void onAddedToWorld() {
+        super.onAddedToWorld();
+        if (!this.level().isClientSide) {
+            this.registerSpecialGoals();
+        }
     }
 
     @NotNull
@@ -150,6 +149,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         }
 
         return InteractionResult.PASS;
+    }
+
+    @Override
+    public void remove(@NotNull RemovalReason reason) {
+        if (this.spawnedFromCap != null) {
+            ObservationManager.ifCapPresent(this.spawnedFromCap, (cap) -> cap.setSpawnCount(cap.getSpawnCount() - 1));
+        }
+        super.remove(reason);
     }
 
     @Override
@@ -276,11 +283,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-//        this.goalSelector.addGoal(1, new RetreatGoal(this));
+        this.goalSelector.addGoal(1, new RetreatGoal(this));
         this.goalSelector.addGoal(2, new GunAttackGoal(this));
-        // Use potion
-        // RandomLookAroundGoal
-
+        // TODO: Use potion
+        // TODO: RandomLookAroundGoal
+        // TODO: Alert others
         this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Pig.class, true));
     }
