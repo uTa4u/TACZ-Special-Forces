@@ -3,6 +3,13 @@
 
   "entity.taczsf.swatgeneric": "Swat Agent",
 
+  "mission.taczsf.msg.scouting": "We shall keep an eye on you",
+  "mission.taczsf.msg.rescue": "Poor souls shall be rescued from your grasp",
+  "mission.taczsf.msg.raid": "Your valuables will pe repossessed",
+  "mission.taczsf.msg.siege": "Keep hiding in your rat hole",
+  "mission.taczsf.msg.arrest": "You place is behind the bars",
+  "mission.taczsf.msg.sabotage": "Good luck finding out what we just broke",
+
   "entity.taczsf.commander": "Commander",
   "entity.taczsf.assaulter": "Assaulter",
   "entity.taczsf.grenadier": "Grenadier",

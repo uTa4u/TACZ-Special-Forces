@@ -7,7 +7,8 @@ import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.GunTabType;
-import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.api.item.IAmmo;
+import com.tacz.guns.api.item.IAmmoBox;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
@@ -38,6 +39,7 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -73,6 +75,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public static final byte STATE_DOWN = 1;
     public static final byte STATE_DEAD = 2;
 
+    // The order by type in which guns should be used
+    private static final List<String> GUN_TYPE_ORDER = List.of(GunTabType.SNIPER.name().toLowerCase(Locale.US), GunTabType.RPG.name().toLowerCase(Locale.US), GunTabType.MG.name().toLowerCase(Locale.US), GunTabType.RIFLE.name().toLowerCase(Locale.US), GunTabType.SHOTGUN.name().toLowerCase(Locale.US), GunTabType.SMG.name().toLowerCase(Locale.US), GunTabType.PISTOL.name().toLowerCase(Locale.US));
+
     // Entities shoot a little further than their weapon's effective range
     private static final float EFFECTIVE_RANGE_MULT = 2.0f;
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
@@ -81,18 +86,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     private int lastSquadSummonTick = 0;
     private short deadBodyAge = 0;
-    // TODO: entities shouldn't get too close in GunAttackGoal
     private float currentGunAttackRadiusSqr;
-    private ItemStack currentGun;
-    private final Map<String, NonNullList<ItemStack>> arsenal = new LinkedHashMap<>() {{
-        put(GunTabType.SNIPER.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.RPG.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.MG.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.RIFLE.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.SHOTGUN.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.SMG.name().toLowerCase(Locale.US), NonNullList.create());
-        put(GunTabType.PISTOL.name().toLowerCase(Locale.US), NonNullList.create());
-    }};
 
     // Only commanders have these field set to non-null
     @Nullable
@@ -137,9 +131,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     public void onAddedToWorld() {
         super.onAddedToWorld();
-        if (!this.level().isClientSide) {
-            this.registerSpecialGoals();
-        }
+//        if (!this.level().isClientSide) {
+//            this.registerSpecialGoals();
+//        }
     }
 
     @NotNull
@@ -187,6 +181,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             // Swat Entity goes down. It can attack, but can't move.
             // Can heal and be healed, if health goes above the threshold, it goes up.
             this.setState(STATE_DOWN);
+            // TODO: set disabled flag MOVE instead, but factor out movement code from
+            //  GunAttackGoal first. Into RetreatGoal and rename it to TacticalMoveGoal, maybe?
             this.setSpeed(0.0f);
 
             if (hpAfterDmg <= 0.0f) {
@@ -231,29 +227,30 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
 
             // Summon squad members
-            if (this.getSpecialty() == Specialty.COMMANDER && this.mission != null && this.squad != null) {
-                if (this.tickCount - this.lastSquadSummonTick >= SQUAD_SUMMON_COOLDOWN) {
-                    this.lastSquadSummonTick = this.tickCount;
+            if (this.getSpecialty() == Specialty.COMMANDER
+                    && this.mission != null
+                    && this.squad != null
+                    && this.tickCount - this.lastSquadSummonTick >= SQUAD_SUMMON_COOLDOWN
+            ) {
+                this.lastSquadSummonTick = this.tickCount;
+                // Get specialties of squad
+                List<Specialty> existingSpecs = this.squad.stream().map(SwatEntity::getSpecialty).toList();
 
-                    Vec3 pos = this.position();
+                // Get specialties which are missing in squad
+                List<Specialty> missingSpecs = this.mission.getParticipants();
+                existingSpecs.forEach(missingSpecs::remove);
 
-                    // Get specialties of squad
-                    List<Specialty> existingSpecs = this.squad.stream().map(SwatEntity::getSpecialty).toList();
-
-                    // Get specialties which are missing in squad
-                    List<Specialty> missingSpecs = this.mission.getParticipants();
-                    existingSpecs.forEach(missingSpecs::remove);
-
-                    for (Specialty spec : missingSpecs) {
-                        SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
-                        squadMember.setPos(pos);
-                        squadMember.setTarget(target);
-                        ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(squadMember.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
-                        if (serverLevel.addFreshEntity(squadMember)) {
-                            this.squad.add(squadMember);
-                        }
+                Vec3 pos = this.position();
+                for (Specialty spec : missingSpecs) {
+                    SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
+                    squadMember.setPos(pos);
+                    squadMember.setTarget(target);
+                    ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(squadMember.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
+                    if (serverLevel.addFreshEntity(squadMember)) {
+                        this.squad.add(squadMember);
                     }
                 }
+
             }
         }
     }
@@ -328,6 +325,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 //        }
     }
 
+    /*
     private void registerSpecialGoals() {
         switch (this.getSpecialty()) {
             case COMMANDER -> {
@@ -359,7 +357,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
         }
     }
+    */
 
+    // TODO: Also register special and mission goals here, since the order in which they are registered matters
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
@@ -391,7 +391,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         LootTable lootTable = serverLevel.getServer().getLootData().getLootTable(this.getSpecialty().getLootTable());
         LootParams lootParams = new LootParams.Builder(serverLevel).create(LootContextParamSets.EMPTY);
 
-        // TODO: shuffle and split itemstacks like how LootTable#fill does
+        // TODO: shuffle and split items like how LootTable#fill does
         ObjectArrayList<ItemStack> itemStacks = lootTable.getRandomItems(lootParams);
         for (int i = itemStacks.size() - 1; i >= 0; --i) {
             ItemStack itemStack = itemStacks.remove(i);
@@ -414,63 +414,63 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 }
             }
         }
-
-        // Find all guns
-        for (ItemStack itemStack : this.items) {
-            CompoundTag nbt = itemStack.getOrCreateTag();
-            if (!nbt.contains("GunId")) continue;
-            ResourceLocation gunId = ResourceLocation.tryParse(nbt.getString("GunId"));
-            if (gunId == null) continue;
-            Optional<CommonGunIndex> gunIndexOpt = TimelessAPI.getCommonGunIndex(gunId);
-            if (gunIndexOpt.isEmpty()) continue;
-            CommonGunIndex gunIndex = gunIndexOpt.get();
-            String type = gunIndex.getType();
-            NonNullList<ItemStack> guns = this.arsenal.get(type);
-            if (guns == null) continue;
-            guns.set(guns.size(), itemStack);
-        }
-
     }
 
-    private void takeNextGun() {
-        ItemStack nextGun = ItemStack.EMPTY;
-        outer_loop:
-        for (int i = 0; i < this.arsenal.keySet().size(); ++i) {
-            NonNullList<ItemStack> guns = this.arsenal.;
-            if (guns.isEmpty()) continue;
-            for (int j = 0; j < guns.size(); ++j) {
-                if (ItemStack.isSameItemSameTags(this.currentGun, guns.get(j))) {
-                    int nextGunIndex = j + 1;
-                    if (nextGunIndex >= guns.size()) {
-                        int nextGunTypeIndex = i + 1;
-                        if (nextGunTypeIndex < gunTypes.length) {
-                            guns = this.arsenal.get(gunTypes[nextGunTypeIndex]);
-                            if (!guns.isEmpty()) {
-                                nextGun = guns.get(0);
-                                break outer_loop;
-                            }
-                        }
-                    } else {
-                        nextGun = guns.get(nextGunIndex);
-                        break outer_loop;
-                    }
-                }
+    public void takeNextGun() {
+        List<ItemStack> potentialNextGuns = new ArrayList<>();
+        Map<ItemStack, CommonGunIndex> potentialNextGunIndexes = new HashMap<>();
+        Map<ItemStack, Integer> potentialNextGunIndices = new HashMap<>();
+
+        for (int i = 0; i < this.items.size(); ++i) {
+            ItemStack gunItemStack = this.items.get(i);
+            CompoundTag nbt = gunItemStack.getOrCreateTag();
+            if (!nbt.contains("GunId")) continue;
+
+            ResourceLocation gunId = ResourceLocation.tryParse(nbt.getString("GunId"));
+            if (gunId == null) continue;
+
+            Optional<CommonGunIndex> gunIndexOpt = TimelessAPI.getCommonGunIndex(gunId);
+            if (gunIndexOpt.isEmpty()) continue;
+
+            if (this.hasAmmoForGun(gunItemStack)) {
+                CommonGunIndex gunIndex = gunIndexOpt.get();
+                potentialNextGuns.add(gunItemStack);
+                potentialNextGunIndexes.put(gunItemStack, gunIndex);
+                potentialNextGunIndices.put(gunItemStack, i);
             }
         }
-        this.currentGun = nextGun;
-        this.setItemInHand(InteractionHand.MAIN_HAND, this.currentGun);
+
+        // Out of guns... Let's go with fists
+        if (potentialNextGuns.isEmpty()) {
+            // TODO: remove GunAttackGoal and add MeleeAttackGoal instead
+            return;
+        }
+
+        potentialNextGuns.sort((itemStack1, itemStack2) -> {
+            CommonGunIndex gunIndex1 = potentialNextGunIndexes.get(itemStack1);
+            CommonGunIndex gunIndex2 = potentialNextGunIndexes.get(itemStack2);
+            int index1 = GUN_TYPE_ORDER.indexOf(gunIndex1.getType());
+            int index2 = GUN_TYPE_ORDER.indexOf(gunIndex2.getType());
+            return index1 - index2;
+        });
+
+        ItemStack nextGun = potentialNextGuns.get(0);
+        this.setItemInHand(InteractionHand.MAIN_HAND, nextGun);
+
+        // If nextGun is not on hotbar, we swap it there
+        int index = potentialNextGunIndices.get(nextGun);
+        if (index > HOTBAR_INDEX_END) {
+            int hotbarIndex = this.getFreeHotbarIndex();
+            if (hotbarIndex == -1) hotbarIndex = this.random.nextInt(HOTBAR_INDEX_END + 1);
+            this.swapItems(index, hotbarIndex);
+        }
+
         this.currentGunAttackRadiusSqr = 0.0f;
-        IGun iGun = IGun.getIGunOrNull(this.currentGun);
-        if (iGun != null) {
-            ResourceLocation gunId = iGun.getGunId(this.currentGun);
-            TimelessAPI.getCommonGunIndex(gunId).ifPresent(gunIndex -> {
-                AttachmentCacheProperty prop = this.getCacheProperty();
-                if (prop != null) {
-                    prop.eval(this.currentGun, gunIndex.getGunData());
-                    float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
-                    this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
-                }
-            });
+        AttachmentCacheProperty prop = this.getCacheProperty();
+        if (prop != null) {
+            prop.eval(nextGun, potentialNextGunIndexes.get(nextGun).getGunData());
+            float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
+            this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
         }
     }
 
@@ -720,7 +720,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     // ItemHandler capability implementation begins here                //
     //////////////////////////////////////////////////////////////////////
 
-    // Adapted from AbstractMinecartContainer and ContainerEntity
+    // Adapted from AbstractMinecartContainer, ContainerEntity and Inventory
 
     public static final int SWAT_INVENTORY_SIZE = 36;
     public static final int SWAT_ARMOR_SIZE = 4;
@@ -843,6 +843,35 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         for (List<ItemStack> list : this.compartments) {
             list.clear();
         }
+    }
+
+    public void swapItems(int index1, int index2) {
+        if (index1 < 0 || index1 >= this.items.size()) return;
+        if (index2 < 0 || index2 >= this.items.size()) return;
+        ItemStack temp = this.items.get(index1);
+        this.items.set(index1, this.items.get(index2));
+        this.items.set(index2, temp);
+    }
+
+    // Adapted from AbstractGunItem#canReload
+    public boolean hasAmmoForGun(ItemStack gunItemStack) {
+        for (ItemStack ammoItemStack : this.items) {
+            Item ammoItem = ammoItemStack.getItem();
+            if (ammoItem instanceof IAmmo iAmmo) {
+                if (iAmmo.isAmmoOfGun(gunItemStack, ammoItemStack)) {
+                    return true;
+                }
+            }
+            if (ammoItem instanceof IAmmoBox iAmmoBox) {
+                if (iAmmoBox.isAllTypeCreative(ammoItemStack) || iAmmoBox.isCreative(ammoItemStack)) {
+                    return true;
+                }
+                if (iAmmoBox.isAmmoBoxOfGun(gunItemStack, ammoItemStack)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Common code for finding NonNullList (items / armor / offhand) by slot index

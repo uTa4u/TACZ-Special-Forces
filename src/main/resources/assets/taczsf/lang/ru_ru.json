@@ -3,6 +3,13 @@
 
   "entity.taczsf.swatgeneric": "Агент спецназа",
 
+  "mission.taczsf.msg.scouting": "Мы видим тебя",
+  "mission.taczsf.msg.rescue": "Бедные создания больше не пренадлежат тебе",
+  "mission.taczsf.msg.raid": "Твоим ценностям найдено применение получше",
+  "mission.taczsf.msg.siege": "Прячься в своей норе пока можешь",
+  "mission.taczsf.msg.arrest": "Твое место за решеткой",
+  "mission.taczsf.msg.sabotage": "Удачи найти то, что мы только что сломали",
+
   "entity.taczsf.commander": "Командир",
   "entity.taczsf.assaulter": "Штурмовик",
   "entity.taczsf.grenadier": "Гренадер",

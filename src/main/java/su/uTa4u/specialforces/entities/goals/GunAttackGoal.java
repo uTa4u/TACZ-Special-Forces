@@ -76,7 +76,11 @@ public class GunAttackGoal extends Goal {
         ShootResult result = this.shooter.shoot(() -> this.bulletPitch, () -> this.bulletYaw);
         this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
         if (result == ShootResult.NO_AMMO) {
-            this.shooter.reload();
+            if (this.shooter.hasAmmoForGun(this.shooter.getMainHandItem())) {
+                this.shooter.reload();
+            } else {
+                this.shooter.takeNextGun();
+            }
         }
 
         this.isAimingAtHead = this.shooter.getRandom().nextFloat() < this.shooter.getSpecialty().getHeadAimChance();

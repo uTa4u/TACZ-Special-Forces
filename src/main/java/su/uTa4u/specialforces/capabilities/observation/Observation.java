@@ -92,24 +92,26 @@ public class Observation implements IObservation {
                 this.swatMission = null;
             }
 
-            // Select a new Mission
-            List<Mission> possibleMissions = new ArrayList<>();
-            if (!this.anyObservedBlocks()) {
-                possibleMissions.add(Mission.RAID);
-            }
-            if (!this.anyObservedEntities()) {
-                possibleMissions.add(Mission.RESCUE);
-            }
-            if (serverLevel.dimension() == serverPlayer.getRespawnDimension() && serverPlayer.getRespawnPosition() != null) {
-                possibleMissions.add(Mission.ARREST);
-            }
-            possibleMissions.add(Mission.SCOUTING);
-            possibleMissions.add(Mission.SIEGE);
-            possibleMissions.add(Mission.SABOTAGE);
-            this.swatMission = possibleMissions.get(player.getRandom().nextInt(possibleMissions.size()));
+            // Select a new Mission if previous one was failed, otherwise keep it
+            if (this.swatMission == null) {
+                List<Mission> possibleMissions = new ArrayList<>();
+                if (!this.anyObservedBlocks()) {
+                    possibleMissions.add(Mission.RAID);
+                }
+                if (!this.anyObservedEntities()) {
+                    possibleMissions.add(Mission.RESCUE);
+                }
+                if (serverLevel.dimension() == serverPlayer.getRespawnDimension() && serverPlayer.getRespawnPosition() != null) {
+                    possibleMissions.add(Mission.ARREST);
+                }
+                possibleMissions.add(Mission.SCOUTING);
+                possibleMissions.add(Mission.SIEGE);
+                possibleMissions.add(Mission.SABOTAGE);
+                this.swatMission = possibleMissions.get(player.getRandom().nextInt(possibleMissions.size()));
 
-            // Notify the player that new swat mission is about to starting
-            serverPlayer.sendSystemMessage(this.swatMission.getMessage().append(", ").append(serverPlayer.getDisplayName()));
+                // Notify the player that new swat mission is about to starting
+                serverPlayer.sendSystemMessage(this.swatMission.getMessage().append(", ").append(serverPlayer.getDisplayName()));
+            }
 
             // Spawn Mission Commander
             if (this.swatMission == null) return;
