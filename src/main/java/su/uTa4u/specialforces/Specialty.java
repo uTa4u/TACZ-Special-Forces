@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,14 +62,14 @@ public enum Specialty {
     private static final Specialty[] VALUES = values();
     private static final int SIZE = VALUES.length;
 
-    public static final Map<Specialty, Component> TYPE_NAMES = new HashMap<>();
-    public static final Map<String, Specialty> SPECIALTY_BY_NAME = new HashMap<>();
+    private static final Map<String, Specialty> SPECIALTY_BY_NAME = new HashMap<>();
 
     private final String name;
     private final ResourceLocation skin;
     private final float headAimChance;
     private final AttributeMap attributes;
     private final ResourceLocation lootTable;
+    private final Component typeName;
 
     Specialty(String name, float headAimChance, AttributeSupplier supplier) {
         this.name = name;
@@ -76,6 +77,7 @@ public enum Specialty {
         this.headAimChance = headAimChance;
         this.attributes = initAttributeMap(supplier);
         this.lootTable = Util.getResource("spawn_inv/" + name);
+        this.typeName = Component.translatable("entity." + SpecialForces.MOD_ID + "." + name);
     }
 
     public static Specialty getRandomSpecialty() {
@@ -102,6 +104,15 @@ public enum Specialty {
         return this.lootTable;
     }
 
+    public Component getTypeName() {
+        return this.typeName;
+    }
+
+    @Nullable
+    public static Specialty byName(String name) {
+        return SPECIALTY_BY_NAME.get(name);
+    }
+
     private static AttributeMap initAttributeMap(AttributeSupplier supplier) {
         AttributeMap map = new AttributeMap(supplier);
 
@@ -123,7 +134,6 @@ public enum Specialty {
 
     static {
         for (Specialty specialty : VALUES) {
-            TYPE_NAMES.put(specialty, Component.translatable("entity." + SpecialForces.MOD_ID + "." + specialty.name));
             SPECIALTY_BY_NAME.put(specialty.name, specialty);
         }
     }

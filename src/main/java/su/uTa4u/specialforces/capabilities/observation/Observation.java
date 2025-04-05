@@ -6,71 +6,64 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.ai.util.LandRandomPos;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.ForgeEventFactory;
 import su.uTa4u.specialforces.Mission;
+import su.uTa4u.specialforces.Specialty;
+import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.*;
 
 public class Observation implements IObservation {
-    private static final Set<Block> BLOCKS_UNDER_OBSERVATION = new HashSet<>();
-    private static final Set<EntityType<? extends Entity>> ENTITIES_UNDER_OBSERVATION = new HashSet<>();
-//    protected static final int MISSION_COOLDOWN = 24000 * 2;
-    static final int SPAWN_COOLDOWN = 20;
-    static final int MAX_SPAWN_COUNT = 0;
+    private static final Set<Block> OBSERVATION_BLOCK_TARGETS = new HashSet<>();
+    private static final Set<EntityType<? extends Entity>> OBSERVATION_ENTITY_TARGETS = new HashSet<>();
+    // TODO: CONFIG VALUE
+    private static final int TICK_COOLDOWN = 600;
+    private static final int MAX_SQUAD_COUNT = 2;
 
     private Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
     private Map<EntityType<? extends Entity>, List<UUID>> observedEntities = new HashMap<>();
-    private int lastSpawnTick = 0;
-    private int spawnCount = 0;
-    private Mission swatMission;
+    private int lastTick = 0;
+    private List<UUID> commanders = new ArrayList<>();
+    private Mission swatMission = null;
 
     Observation() {
-        BLOCKS_UNDER_OBSERVATION.forEach( block -> observedBlocks.put(block, new ArrayList<>()));
-        ENTITIES_UNDER_OBSERVATION.forEach( entityType -> observedEntities.put(entityType, new ArrayList<>()));
+        OBSERVATION_BLOCK_TARGETS.forEach(block -> this.observedBlocks.put(block, new ArrayList<>()));
+        OBSERVATION_ENTITY_TARGETS.forEach(entityType -> this.observedEntities.put(entityType, new ArrayList<>()));
     }
 
     @Override
     public void observe(Block block, BlockPos pos) {
-        if (!this.observedBlocks.get(block).contains(pos)) {
+        if (this.swatMission == Mission.SCOUTING && !this.observedBlocks.get(block).contains(pos)) {
             this.observedBlocks.get(block).add(pos);
         }
     }
 
     @Override
     public void observe(EntityType<? extends Entity> entityType, UUID uuid) {
-        if (!this.observedEntities.get(entityType).contains(uuid)) {
+        if (this.swatMission == Mission.SCOUTING && !this.observedEntities.get(entityType).contains(uuid)) {
             this.observedEntities.get(entityType).add(uuid);
         }
     }
 
     @Override
-    public void clear() {
-        this.observedBlocks.clear();
-        this.observedEntities.clear();
+    public int getLastTick() {
+        return this.lastTick;
     }
 
     @Override
-    public int getLastSpawnTick() {
-        return this.lastSpawnTick;
-    }
-
-    @Override
-    public void setLastSpawnTick(int value) {
-        this.lastSpawnTick = value;
-    }
-
-    @Override
-    public int getSpawnCount() {
-        return this.spawnCount;
-    }
-
-    @Override
-    public void setSpawnCount(int value) {
-        this.spawnCount = value;
+    public List<UUID> getCommanders() {
+        return this.commanders;
     }
 
     @Override
@@ -84,9 +77,66 @@ public class Observation implements IObservation {
     }
 
     @Override
+    public void tick(Player player) {
+        if (player.tickCount - this.lastTick >= TICK_COOLDOWN) {
+            this.lastTick = player.tickCount;
+
+            ServerLevel serverLevel = (ServerLevel) player.level();
+            ServerPlayer serverPlayer = (ServerPlayer) player;
+
+            // Clear removed entities
+            this.commanders.removeIf(uuid -> serverLevel.getEntity(uuid) == null);
+
+            // If all commanders are dead, mission is failed
+            if (this.commanders.isEmpty()) {
+                this.swatMission = null;
+            }
+
+            // Select a new Mission
+            List<Mission> possibleMissions = new ArrayList<>();
+            if (!this.anyObservedBlocks()) {
+                possibleMissions.add(Mission.RAID);
+            }
+            if (!this.anyObservedEntities()) {
+                possibleMissions.add(Mission.RESCUE);
+            }
+            if (serverLevel.dimension() == serverPlayer.getRespawnDimension() && serverPlayer.getRespawnPosition() != null) {
+                possibleMissions.add(Mission.ARREST);
+            }
+            possibleMissions.add(Mission.SCOUTING);
+            possibleMissions.add(Mission.SIEGE);
+            possibleMissions.add(Mission.SABOTAGE);
+            this.swatMission = possibleMissions.get(player.getRandom().nextInt(possibleMissions.size()));
+
+            // Notify the player that new swat mission is about to starting
+            serverPlayer.sendSystemMessage(this.swatMission.getMessage().append(", ").append(serverPlayer.getDisplayName()));
+
+            // Spawn Mission Commander
+            if (this.swatMission == null) return;
+            if (this.commanders.size() >= MAX_SQUAD_COUNT) return;
+
+            for (int i = 0; i < MAX_SQUAD_COUNT; ++i) {
+                SwatEntity commander = SwatEntity.create(serverLevel, Specialty.COMMANDER, this.swatMission);
+
+                // Temporarily set commander's position to player to be able to get a random pos
+                commander.setPos(player.position());
+                Vec3 pos = LandRandomPos.getPos(commander, 127, 15);
+                if (pos == null) continue;
+
+                commander.setPos(pos);
+                commander.setTarget(player);
+                ForgeEventFactory.onFinalizeSpawn(commander, serverLevel, serverLevel.getCurrentDifficultyAt(commander.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
+                if (serverLevel.addFreshEntity(commander)) {
+                    this.commanders.add(commander.getUUID());
+                }
+            }
+        }
+    }
+
+    @Override
     public void copy(IObservation other) {
-        this.lastSpawnTick = other.getLastSpawnTick();
-        this.spawnCount = other.getSpawnCount();
+        this.lastTick = other.getLastTick();
+        this.commanders = other.getCommanders();
         this.observedBlocks = other.getObservedBlocks();
         this.observedEntities = other.getObservedEntities();
     }
@@ -95,10 +145,16 @@ public class Observation implements IObservation {
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
 
-        nbt.putInt("spawnCount", this.spawnCount);
+        if (this.swatMission != null) {
+            nbt.putString("swatMission", this.swatMission.getName());
+        }
+
+        ListTag spawnedUUIDsTag = new ListTag();
+        this.commanders.forEach(uuid -> spawnedUUIDsTag.add(NbtUtils.createUUID(uuid)));
+        nbt.put("commanders", spawnedUUIDsTag);
 
         CompoundTag blocksTag = new CompoundTag();
-        this.observedBlocks.forEach( (block, list) -> {
+        this.observedBlocks.forEach((block, list) -> {
             ListTag blockTag = new ListTag();
             for (BlockPos pos : list) {
                 blockTag.add(NbtUtils.writeBlockPos(pos));
@@ -108,7 +164,7 @@ public class Observation implements IObservation {
         nbt.put("blocks", blocksTag);
 
         CompoundTag entitiesTag = new CompoundTag();
-        this.observedEntities.forEach( (entityType, list) -> {
+        this.observedEntities.forEach((entityType, list) -> {
             ListTag entityTypeTag = new ListTag();
             for (UUID uuid : list) {
                 entityTypeTag.add(NbtUtils.createUUID(uuid));
@@ -123,12 +179,22 @@ public class Observation implements IObservation {
     @Override
     public void deserializeNBT(CompoundTag nbt) {
 
-        this.spawnCount = nbt.getInt("spawnCount");
+        if (nbt.contains("swatMission")) {
+            Mission mission = Mission.byName(nbt.getString("swatMission"));
+            if (mission != null) this.swatMission = mission;
+        }
+
+        Tag tag = nbt.get("commanders");
+        if (tag instanceof ListTag commandersTag && !commandersTag.isEmpty()) {
+            for (Tag t : commandersTag) {
+                this.commanders.add(NbtUtils.loadUUID(t));
+            }
+        }
 
         CompoundTag blocksTag = (CompoundTag) nbt.get("blocks");
         if (blocksTag != null) {
-            for (Block block : BLOCKS_UNDER_OBSERVATION) {
-                Tag tag = blocksTag.get(getBlockName(block));
+            for (Block block : OBSERVATION_BLOCK_TARGETS) {
+                tag = blocksTag.get(getBlockName(block));
                 if (!(tag instanceof ListTag blockTag) || blockTag.isEmpty()) continue;
                 List<BlockPos> list = new ArrayList<>();
                 for (Tag t : blockTag) {
@@ -140,8 +206,8 @@ public class Observation implements IObservation {
 
         CompoundTag entitiesTag = (CompoundTag) nbt.get("entities");
         if (entitiesTag != null) {
-            for (EntityType<?> entityType : ENTITIES_UNDER_OBSERVATION) {
-                Tag tag = entitiesTag.get(getEntityTypeName(entityType));
+            for (EntityType<?> entityType : OBSERVATION_ENTITY_TARGETS) {
+                tag = entitiesTag.get(getEntityTypeName(entityType));
                 if (!(tag instanceof ListTag entityTypeTag) || entityTypeTag.isEmpty()) continue;
                 List<UUID> list = new ArrayList<>();
                 for (Tag t : entityTypeTag) {
@@ -153,7 +219,7 @@ public class Observation implements IObservation {
     }
 
     public static boolean isObserved(Block block) {
-        return BLOCKS_UNDER_OBSERVATION.contains(block);
+        return OBSERVATION_BLOCK_TARGETS.contains(block);
     }
 
     public static boolean isObserved(BlockState blockState) {
@@ -161,7 +227,27 @@ public class Observation implements IObservation {
     }
 
     public static boolean isObserved(EntityType<?> entityType) {
-        return ENTITIES_UNDER_OBSERVATION.contains(entityType);
+        return OBSERVATION_ENTITY_TARGETS.contains(entityType);
+    }
+
+    private boolean anyObservedBlocks() {
+        for (Block block : OBSERVATION_BLOCK_TARGETS) {
+            List<BlockPos> list = this.observedBlocks.get(block);
+            if (list != null && !list.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean anyObservedEntities() {
+        for (EntityType<? extends Entity> entityType : OBSERVATION_ENTITY_TARGETS) {
+            List<UUID> list = this.observedEntities.get(entityType);
+            if (list != null && !list.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String getBlockName(Block block) {
@@ -173,10 +259,10 @@ public class Observation implements IObservation {
     }
 
     static {
-        BLOCKS_UNDER_OBSERVATION.add(Blocks.CHEST);
-        BLOCKS_UNDER_OBSERVATION.add(Blocks.FURNACE);
+        OBSERVATION_BLOCK_TARGETS.add(Blocks.CHEST);
+        OBSERVATION_BLOCK_TARGETS.add(Blocks.FURNACE);
 
-        ENTITIES_UNDER_OBSERVATION.add(EntityType.VILLAGER);
-        ENTITIES_UNDER_OBSERVATION.add(EntityType.COW);
+        OBSERVATION_ENTITY_TARGETS.add(EntityType.VILLAGER);
+        OBSERVATION_ENTITY_TARGETS.add(EntityType.COW);
     }
 }
