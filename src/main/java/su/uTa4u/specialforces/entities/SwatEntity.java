@@ -1,12 +1,18 @@
 package su.uTa4u.specialforces.entities;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.logging.LogUtils;
+import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
+import com.tacz.guns.api.item.GunTabType;
+import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
+import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
+import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
@@ -18,6 +24,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
@@ -46,20 +53,19 @@ import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 import su.uTa4u.specialforces.Mission;
 import su.uTa4u.specialforces.ModTags;
-import su.uTa4u.specialforces.SpecialForces;
 import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator, Container, MenuProvider {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final EntityDataAccessor<Byte> STATE = SynchedEntityData.defineId(SwatEntity.class, EntityDataSerializers.BYTE);
@@ -73,10 +79,20 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final int SQUAD_SUMMON_COOLDOWN = 100;
     private static final int DEAD_BODY_LIFESPAN = 6000;
 
-    // TODO: entities shouldn't get too close in GunAttackGoal
-    private float currentGunAttackRadiusSqr;
     private int lastSquadSummonTick = 0;
     private short deadBodyAge = 0;
+    // TODO: entities shouldn't get too close in GunAttackGoal
+    private float currentGunAttackRadiusSqr;
+    private ItemStack currentGun;
+    private final Map<String, NonNullList<ItemStack>> arsenal = new LinkedHashMap<>() {{
+        put(GunTabType.SNIPER.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.RPG.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.MG.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.RIFLE.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.SHOTGUN.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.SMG.name().toLowerCase(Locale.US), NonNullList.create());
+        put(GunTabType.PISTOL.name().toLowerCase(Locale.US), NonNullList.create());
+    }};
 
     // Only commanders have these field set to non-null
     @Nullable
@@ -103,16 +119,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Nullable
     @Override
     public SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor levelAccessor, @NotNull DifficultyInstance difficulty, @NotNull MobSpawnType spawnType, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
-        // TODO: || spawnType == MobSpawnType.SPAWN_EGG
-        if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.COMMAND) {
+        if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.COMMAND || spawnType == MobSpawnType.SPAWN_EGG) {
             this.setSpecialty(Specialty.getRandomSpecialty());
-//            SpecialForces.LOGGER.info("Random Spec: " + this.getSpecialty());
+//            LOGGER.info("Random Spec: " + this.getSpecialty());
         }
 
         // TODO: give all loottables pool names
         this.generateInventory();
 
-        this.pickBestGun();
+        this.takeNextGun();
 
         this.copySpecialAttributes();
 
@@ -316,31 +331,31 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private void registerSpecialGoals() {
         switch (this.getSpecialty()) {
             case COMMANDER -> {
-                SpecialForces.LOGGER.info("COMMANDER goals registered");
+                LOGGER.info("COMMANDER goals registered");
             }
             case ASSAULTER -> {
-                SpecialForces.LOGGER.info("ASSAULTER goals registered");
+                LOGGER.info("ASSAULTER goals registered");
             }
             case GRENADIER -> {
-                SpecialForces.LOGGER.info("GRENADIER goals registered");
+                LOGGER.info("GRENADIER goals registered");
             }
             case BULLDOZER -> {
-                SpecialForces.LOGGER.info("BULLDOZER goals registered");
+                LOGGER.info("BULLDOZER goals registered");
             }
             case ENGINEER -> {
-                SpecialForces.LOGGER.info("ENGINEER goals registered");
+                LOGGER.info("ENGINEER goals registered");
             }
             case SNIPER -> {
-                SpecialForces.LOGGER.info("SNIPER goals registered");
+                LOGGER.info("SNIPER goals registered");
             }
             case MEDIC -> {
-                SpecialForces.LOGGER.info("MEDIC goals registered");
+                LOGGER.info("MEDIC goals registered");
             }
             case SCOUT -> {
-                SpecialForces.LOGGER.info("SCOUT goals registered");
+                LOGGER.info("SCOUT goals registered");
             }
             case SPY -> {
-                SpecialForces.LOGGER.info("SPY goals registered");
+                LOGGER.info("SPY goals registered");
             }
         }
     }
@@ -399,41 +414,64 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 }
             }
         }
+
+        // Find all guns
+        for (ItemStack itemStack : this.items) {
+            CompoundTag nbt = itemStack.getOrCreateTag();
+            if (!nbt.contains("GunId")) continue;
+            ResourceLocation gunId = ResourceLocation.tryParse(nbt.getString("GunId"));
+            if (gunId == null) continue;
+            Optional<CommonGunIndex> gunIndexOpt = TimelessAPI.getCommonGunIndex(gunId);
+            if (gunIndexOpt.isEmpty()) continue;
+            CommonGunIndex gunIndex = gunIndexOpt.get();
+            String type = gunIndex.getType();
+            NonNullList<ItemStack> guns = this.arsenal.get(type);
+            if (guns == null) continue;
+            guns.set(guns.size(), itemStack);
+        }
+
     }
 
-    private void pickBestGun() {
-        //        String gunId = "ak47";
-//        ItemStack gun = GunItemBuilder.create()
-//                .setId(Util.getTaczResource(gunId))
-//                .setAmmoCount(20)
-//                .setFireMode(FireMode.BURST)
-//                .build();
-////        this.setItemInHand(InteractionHand.MAIN_HAND, gun);
-//        this.tacz$data.currentGunItem = () -> gun;
-//        Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(Util.getTaczResource(gunId));
-//        if (gunIndexOptional.isEmpty()) {
-//            this.remove(RemovalReason.DISCARDED);
-//            SpecialForces.LOGGER.error("SwatEntity spawned with an invalid gun and was terminated: " + gunId);
-//            return null;
-//        }
-//        AttachmentCacheProperty prop = new AttachmentCacheProperty();
-//        prop.eval(gun, gunIndexOptional.get().getGunData());
-//        this.updateCacheProperty(prop);
-//        float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
-//        this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
-        int i;
-        ItemStack itemStack;
-        // Try to find a gun in hotbar
-        for (i = HOTBAR_INDEX_START; i <= HOTBAR_INDEX_END; ++i) {
-            itemStack = this.items.get(i);
+    private void takeNextGun() {
+        ItemStack nextGun = ItemStack.EMPTY;
+        outer_loop:
+        for (int i = 0; i < this.arsenal.keySet().size(); ++i) {
+            NonNullList<ItemStack> guns = this.arsenal.;
+            if (guns.isEmpty()) continue;
+            for (int j = 0; j < guns.size(); ++j) {
+                if (ItemStack.isSameItemSameTags(this.currentGun, guns.get(j))) {
+                    int nextGunIndex = j + 1;
+                    if (nextGunIndex >= guns.size()) {
+                        int nextGunTypeIndex = i + 1;
+                        if (nextGunTypeIndex < gunTypes.length) {
+                            guns = this.arsenal.get(gunTypes[nextGunTypeIndex]);
+                            if (!guns.isEmpty()) {
+                                nextGun = guns.get(0);
+                                break outer_loop;
+                            }
+                        }
+                    } else {
+                        nextGun = guns.get(nextGunIndex);
+                        break outer_loop;
+                    }
+                }
+            }
         }
-
-        // Try to find a gun in inventory
-        for (i = INV_INDEX_START; i <= INV_INDEX_END; ++i) {
-            itemStack = this.items.get(i);
+        this.currentGun = nextGun;
+        this.setItemInHand(InteractionHand.MAIN_HAND, this.currentGun);
+        this.currentGunAttackRadiusSqr = 0.0f;
+        IGun iGun = IGun.getIGunOrNull(this.currentGun);
+        if (iGun != null) {
+            ResourceLocation gunId = iGun.getGunId(this.currentGun);
+            TimelessAPI.getCommonGunIndex(gunId).ifPresent(gunIndex -> {
+                AttachmentCacheProperty prop = this.getCacheProperty();
+                if (prop != null) {
+                    prop.eval(this.currentGun, gunIndex.getGunData());
+                    float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
+                    this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
+                }
+            });
         }
-        // TODO: do something
-        // No gun was found
     }
 
     @Override

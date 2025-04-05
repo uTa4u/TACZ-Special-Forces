@@ -27,7 +27,7 @@ import su.uTa4u.specialforces.menus.ModMenuTypes;
 @Mod(SpecialForces.MOD_ID)
 public class SpecialForces {
     public static final String MOD_ID = "taczsf";
-    public static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public SpecialForces(FMLJavaModLoadingContext context) {
         IEventBus modBus = context.getModEventBus();
