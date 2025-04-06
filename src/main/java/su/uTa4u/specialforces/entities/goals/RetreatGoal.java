@@ -49,7 +49,7 @@ public class RetreatGoal extends Goal {
             this.shooter.crawl(true);
         } else {
             if (this.retreatPos != null) {
-                float speed = this.shooter.getDataHolder().isCrawling ? 0.95f : 1.05f;
+                float speed = this.shooter.getDataHolder().isCrawling ? 0.90f : 1.15f;
                 this.shooter.getNavigation().moveTo(this.retreatPos.x, this.retreatPos.y, this.retreatPos.z, speed);
             }
         }

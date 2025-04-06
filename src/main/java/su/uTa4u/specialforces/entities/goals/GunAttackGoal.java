@@ -72,7 +72,6 @@ public class GunAttackGoal extends Goal {
 
         this.computeBulletPitchYaw(targetX, targetY, targetZ);
         ShootResult result = this.shooter.shoot(() -> this.bulletPitch, () -> this.bulletYaw);
-        this.shooter.shoot(this.shooter::getXRot, this.shooter::getYHeadRot);
         if (result == ShootResult.NO_AMMO) {
             if (this.shooter.hasAmmoForGun(this.shooter.getMainHandItem())) {
                 this.shooter.reload();
@@ -108,7 +107,7 @@ public class GunAttackGoal extends Goal {
     // Adapted from LookControl
     private static float rotateTowards(float from, float to, float max) {
         float f = Mth.degreesDifference(from, to);
-        f =  Mth.clamp(f, -max, max);
+        f = Mth.clamp(f, -max, max);
         return from + f;
     }
 

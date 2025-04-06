@@ -98,7 +98,7 @@ public class Observation implements IObservation {
             ServerPlayer serverPlayer = (ServerPlayer) player;
 
             // Clear removed (null) or dead swat entities
-            this.commanders.removeIf(uuid -> !(serverLevel.getEntity(uuid) instanceof SwatEntity swat) || swat.getState() == SwatEntity.STATE_DEAD);
+            this.commanders.removeIf(uuid -> !(serverLevel.getEntity(uuid) instanceof SwatEntity swat) || swat.isRemoved() || swat.getState() == SwatEntity.STATE_DEAD);
 
             // If all commanders are dead, current mission is failed
             if (this.commanders.isEmpty()) {

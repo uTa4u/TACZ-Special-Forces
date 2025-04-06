@@ -29,6 +29,7 @@ public enum Mission {
 
     private final String name;
     private final MutableComponent message;
+    // Unmodifiable list (constructed using Stream#toList())
     private List<Specialty> participants;
 
     Mission(String name) {

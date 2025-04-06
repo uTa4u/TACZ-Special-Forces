@@ -1,7 +1,6 @@
 package su.uTa4u.specialforces.entities;
 
 import com.google.common.collect.ImmutableList;
-import com.mojang.logging.LogUtils;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
@@ -29,13 +28,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -55,10 +57,10 @@ import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 import su.uTa4u.specialforces.Mission;
 import su.uTa4u.specialforces.ModTags;
 import su.uTa4u.specialforces.Specialty;
+import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
@@ -68,7 +70,7 @@ import java.util.*;
 import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator, Container, MenuProvider {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    // private static final Logger LOGGER = LogUtils.getLogger();
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final EntityDataAccessor<Byte> STATE = SynchedEntityData.defineId(SwatEntity.class, EntityDataSerializers.BYTE);
@@ -77,7 +79,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public static final byte STATE_DEAD = 2;
 
     // The order by type in which guns should be used
-    private static final List<String> GUN_TYPE_ORDER = List.of(GunTabType.SNIPER.name().toLowerCase(Locale.US), GunTabType.RPG.name().toLowerCase(Locale.US), GunTabType.MG.name().toLowerCase(Locale.US), GunTabType.RIFLE.name().toLowerCase(Locale.US), GunTabType.SHOTGUN.name().toLowerCase(Locale.US), GunTabType.SMG.name().toLowerCase(Locale.US), GunTabType.PISTOL.name().toLowerCase(Locale.US));
+    private static final List<String> GUN_TYPE_ORDER = List.of(Util.getGunTabTypeName(GunTabType.SNIPER), Util.getGunTabTypeName(GunTabType.RPG), Util.getGunTabTypeName(GunTabType.MG), Util.getGunTabTypeName(GunTabType.RIFLE), Util.getGunTabTypeName(GunTabType.SHOTGUN), Util.getGunTabTypeName(GunTabType.SMG), Util.getGunTabTypeName(GunTabType.PISTOL));
 
     // TODO: this should be a percentage value of max health depending on Specialty
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
@@ -163,7 +165,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (this.getHealth() > DOWN_HEALTH_THRESHOLD) {
             // Swat Entity has healed above threshold
             this.setState(STATE_ALIVE);
-            this.setSpeed((float) this.getAttributeValue(Attributes.MOVEMENT_SPEED));
+            this.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
         }
     }
 
@@ -181,7 +183,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             this.setState(STATE_DOWN);
             // TODO: set disabled flag MOVE instead, but factor out movement code from
             //  GunAttackGoal first. Into RetreatGoal and rename it to TacticalMoveGoal, maybe?
-            this.setSpeed(0.0f);
+            this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, MobEffectInstance.INFINITE_DURATION, Short.MAX_VALUE));
 
             if (hpAfterDmg <= 0.0f) {
                 // Swat Entity is dead. Can't attack, move or be moved.
@@ -224,31 +226,33 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 }
             }
 
-            // Summon squad members
-            if (this.getSpecialty() == Specialty.COMMANDER
-                    && this.mission != null
-                    && this.squad != null
-                    && this.tickCount - this.lastSquadSummonTick >= CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get()
-            ) {
-                this.lastSquadSummonTick = this.tickCount;
-                // Get specialties of squad
-                List<Specialty> existingSpecs = this.squad.stream().map(SwatEntity::getSpecialty).toList();
+            if (this.getSpecialty() == Specialty.COMMANDER && this.squad != null) {
+                // Clear removed (null) or dead swat entities
+                this.squad.removeIf((swat) -> swat.isRemoved() || swat.getState() == STATE_DEAD);
 
-                // Get specialties which are missing in squad
-                List<Specialty> missingSpecs = this.mission.getParticipants();
-                existingSpecs.forEach(missingSpecs::remove);
+                // Summon squad members
+                if (this.mission != null && this.tickCount - this.lastSquadSummonTick >= CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get()) {
+                    this.lastSquadSummonTick = this.tickCount;
 
-                Vec3 pos = this.position();
-                for (Specialty spec : missingSpecs) {
-                    SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
-                    squadMember.setPos(pos);
-                    squadMember.setTarget(target);
-                    ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(squadMember.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
-                    if (serverLevel.addFreshEntity(squadMember)) {
-                        this.squad.add(squadMember);
+                    // Get specialties which are in squat at the moment
+                    List<Specialty> existingSpecs = this.squad.stream().map(SwatEntity::getSpecialty).toList();
+                    // Get specialties which are supposed to be in squad
+                    List<Specialty> totalSpecs = this.mission.getParticipants();
+                    // Get specialties which are missing in squad
+                    List<Specialty> missingSpecs = new ArrayList<>(totalSpecs);
+                    missingSpecs.removeAll(existingSpecs);
+
+                    Vec3 pos = this.position();
+                    for (Specialty spec : missingSpecs) {
+                        SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
+                        squadMember.setPos(pos);
+                        squadMember.setTarget(target);
+                        ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(squadMember.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
+                        if (serverLevel.addFreshEntity(squadMember)) {
+                            this.squad.add(squadMember);
+                        }
                     }
                 }
-
             }
         }
     }
@@ -363,11 +367,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new RetreatGoal(this));
         this.goalSelector.addGoal(2, new GunAttackGoal(this));
+        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0f));
+        this.goalSelector.addGoal(4, new WaterAvoidingRandomStrollGoal(this, 1.0));
         // TODO: Use potion
         // TODO: RandomLookAroundGoal
         // TODO: Alert others
         this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Pig.class, true));
+        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
@@ -464,12 +470,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         }
 
         this.currentGunAttackRadiusSqr = 0.0f;
-        AttachmentCacheProperty prop = this.getCacheProperty();
-        if (prop != null) {
-            prop.eval(nextGun, potentialNextGunIndexes.get(nextGun).getGunData());
-            float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
-            this.currentGunAttackRadiusSqr = (float) (effectiveRange * effectiveRange * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get() * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get());
-        }
+        AttachmentCacheProperty prop = new AttachmentCacheProperty();
+        prop.eval(nextGun, potentialNextGunIndexes.get(nextGun).getGunData());
+        this.updateCacheProperty(prop);
+        // TODO: This is sus ngl
+        this.tacz$data.currentGunItem = () -> nextGun;
+        float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
+        this.currentGunAttackRadiusSqr = (float) (effectiveRange * effectiveRange * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get() * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get());
     }
 
     @Override
