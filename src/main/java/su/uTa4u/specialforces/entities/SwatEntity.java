@@ -59,6 +59,7 @@ import org.slf4j.Logger;
 import su.uTa4u.specialforces.Mission;
 import su.uTa4u.specialforces.ModTags;
 import su.uTa4u.specialforces.Specialty;
+import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
@@ -78,11 +79,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     // The order by type in which guns should be used
     private static final List<String> GUN_TYPE_ORDER = List.of(GunTabType.SNIPER.name().toLowerCase(Locale.US), GunTabType.RPG.name().toLowerCase(Locale.US), GunTabType.MG.name().toLowerCase(Locale.US), GunTabType.RIFLE.name().toLowerCase(Locale.US), GunTabType.SHOTGUN.name().toLowerCase(Locale.US), GunTabType.SMG.name().toLowerCase(Locale.US), GunTabType.PISTOL.name().toLowerCase(Locale.US));
 
-    // Entities shoot a little further than their weapon's effective range
-    private static final float EFFECTIVE_RANGE_MULT = 2.0f;
+    // TODO: this should be a percentage value of max health depending on Specialty
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
-    private static final int SQUAD_SUMMON_COOLDOWN = 100;
-    private static final int DEAD_BODY_LIFESPAN = 6000;
 
     private int lastSquadSummonTick = 0;
     private short deadBodyAge = 0;
@@ -113,7 +111,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Nullable
     @Override
     public SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor levelAccessor, @NotNull DifficultyInstance difficulty, @NotNull MobSpawnType spawnType, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
-        if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.COMMAND || spawnType == MobSpawnType.SPAWN_EGG) {
+        if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.SPAWN_EGG) {
             this.setSpecialty(Specialty.getRandomSpecialty());
 //            LOGGER.info("Random Spec: " + this.getSpecialty());
         }
@@ -221,7 +219,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             // Check if dead body should despawn
             if (this.getState() == STATE_DEAD) {
                 this.deadBodyAge += 1;
-                if (this.deadBodyAge >= DEAD_BODY_LIFESPAN) {
+                if (this.deadBodyAge >= CommonConfig.SWAT_ENTITY_DEAD_BODY_LIFESPAN.get()) {
                     this.discard();
                 }
             }
@@ -230,7 +228,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             if (this.getSpecialty() == Specialty.COMMANDER
                     && this.mission != null
                     && this.squad != null
-                    && this.tickCount - this.lastSquadSummonTick >= SQUAD_SUMMON_COOLDOWN
+                    && this.tickCount - this.lastSquadSummonTick >= CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get()
             ) {
                 this.lastSquadSummonTick = this.tickCount;
                 // Get specialties of squad
@@ -470,7 +468,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (prop != null) {
             prop.eval(nextGun, potentialNextGunIndexes.get(nextGun).getGunData());
             float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
-            this.currentGunAttackRadiusSqr = effectiveRange * effectiveRange * EFFECTIVE_RANGE_MULT * EFFECTIVE_RANGE_MULT;
+            this.currentGunAttackRadiusSqr = (float) (effectiveRange * effectiveRange * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get() * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get());
         }
     }
 

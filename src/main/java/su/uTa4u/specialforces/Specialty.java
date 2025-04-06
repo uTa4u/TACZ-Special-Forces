@@ -6,57 +6,22 @@ import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import org.jetbrains.annotations.Nullable;
+import su.uTa4u.specialforces.config.CommonConfig;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
 public enum Specialty {
-    COMMANDER("commander", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 90)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    ASSAULTER("assaulter", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 100)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    GRENADIER("grenadier", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 80)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    BULLDOZER("bulldozer", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 150)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    ENGINEER("engineer", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 70)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    SNIPER("sniper", 1.0f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 50)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    MEDIC("medic", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 70)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    SCOUT("scout", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 60)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build()),
-    SPY("spy", 0.3f, AttributeSupplier.builder()
-            .add(Attributes.MAX_HEALTH, 60)
-            .add(Attributes.FOLLOW_RANGE, 16)
-            .add(Attributes.MOVEMENT_SPEED, 0.3)
-            .add(Attributes.KNOCKBACK_RESISTANCE, 0.15f).build());
+    COMMANDER("commander", 0.3f),
+    ASSAULTER("assaulter", 0.3f),
+    GRENADIER("grenadier", 0.3f),
+    BULLDOZER("bulldozer", 0.3f),
+    ENGINEER("engineer", 0.3f),
+    SNIPER("sniper", 1.0f),
+    MEDIC("medic", 0.3f),
+    SCOUT("scout", 0.3f),
+    SPY("spy", 0.3f);
 
     private static final Random RNG = new Random();
     private static final Specialty[] VALUES = values();
@@ -66,16 +31,17 @@ public enum Specialty {
 
     private final String name;
     private final ResourceLocation skin;
-    private final float headAimChance;
-    private final AttributeMap attributes;
     private final ResourceLocation lootTable;
     private final Component typeName;
+    // TODO: remove this, make headAitChance be dependant on difficulty
+    //  Entities should not aim at head/body if view is not clear
+    private final float headAimChance;
+    private AttributeMap attributes;
 
-    Specialty(String name, float headAimChance, AttributeSupplier supplier) {
+    Specialty(String name, float headAimChance) {
         this.name = name;
         this.skin = Util.getResource("textures/entity/" + name + ".png");
         this.headAimChance = headAimChance;
-        this.attributes = initAttributeMap(supplier);
         this.lootTable = Util.getResource("spawn_inv/" + name);
         this.typeName = Component.translatable("entity." + SpecialForces.MOD_ID + "." + name);
     }
@@ -132,9 +98,17 @@ public enum Specialty {
         return map;
     }
 
+    public static void loadAttributesFromConfig() {
+        for (Specialty spec : VALUES) {
+            AttributeSupplier.Builder builder = AttributeSupplier.builder();
+            CommonConfig.SPECIALTY_ATTRIBUTES.get(spec).forEach((attr, value) -> builder.add(attr, value.get()));
+            spec.attributes = initAttributeMap(builder.build());
+        }
+    }
+
     static {
-        for (Specialty specialty : VALUES) {
-            SPECIALTY_BY_NAME.put(specialty.name, specialty);
+        for (Specialty spec : VALUES) {
+            SPECIALTY_BY_NAME.put(spec.name, spec);
         }
     }
 }

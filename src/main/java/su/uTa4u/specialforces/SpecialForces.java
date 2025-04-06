@@ -1,6 +1,5 @@
 package su.uTa4u.specialforces;
 
-import com.mojang.logging.LogUtils;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -11,13 +10,16 @@ import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import org.slf4j.Logger;
+import su.uTa4u.specialforces.capabilities.observation.Observation;
 import su.uTa4u.specialforces.client.ModModelLayers;
 import su.uTa4u.specialforces.client.models.SwatModel;
 import su.uTa4u.specialforces.client.renderers.SwatRenderer;
 import su.uTa4u.specialforces.client.screens.SwatCorpseScreen;
+import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.ModEntities;
 import su.uTa4u.specialforces.entities.SwatEntity;
 import su.uTa4u.specialforces.glms.ModLootModifiers;
@@ -27,7 +29,7 @@ import su.uTa4u.specialforces.menus.ModMenuTypes;
 @Mod(SpecialForces.MOD_ID)
 public class SpecialForces {
     public static final String MOD_ID = "taczsf";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    // private static final Logger LOGGER = LogUtils.getLogger();
 
     public SpecialForces(FMLJavaModLoadingContext context) {
         IEventBus modBus = context.getModEventBus();
@@ -36,6 +38,9 @@ public class SpecialForces {
         ModEntities.ENTITY_TYPES.register(modBus);
         ModMenuTypes.MENU_TYPES.register(modBus);
         ModLootModifiers.LOOT_MODIFIER_SERIALIZERS.register(modBus);
+
+        context.registerConfig(ModConfig.Type.COMMON, CommonConfig.SPEC);
+
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -65,6 +70,24 @@ public class SpecialForces {
         @SubscribeEvent
         public static void onEntityAttributeCreationEvent(EntityAttributeCreationEvent event) {
             event.put(ModEntities.SWAT_ENTITY.get(), SwatEntity.createDefaultAttributes().build());
+        }
+
+        @SubscribeEvent
+        public static void onModConfigLoadingEvent(ModConfigEvent.Loading event) {
+            if (event.getConfig().getSpec() == CommonConfig.SPEC) {
+                Specialty.loadAttributesFromConfig();
+                Mission.loadParticipantsFromConfig();
+                Observation.loadTargetsFromConfig();
+            }
+        }
+
+        @SubscribeEvent
+        public static void onModConfigReloadingEvent(ModConfigEvent.Reloading event) {
+            if (event.getConfig().getSpec() == CommonConfig.SPEC) {
+                Specialty.loadAttributesFromConfig();
+                Mission.loadParticipantsFromConfig();
+                Observation.loadTargetsFromConfig();
+            }
         }
     }
 }

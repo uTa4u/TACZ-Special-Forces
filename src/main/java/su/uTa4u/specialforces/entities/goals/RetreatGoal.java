@@ -9,12 +9,12 @@ import su.uTa4u.specialforces.entities.SwatEntity;
 import java.util.EnumSet;
 
 public class RetreatGoal extends Goal {
-
     private static final int RETREAT_DIST = 8;
 
     private final SwatEntity shooter;
     private Vec3 retreatPos;
 
+    // TODO: move all moving code of SwatEntity in this class and rename to TacticalMoveGoal
     public RetreatGoal(SwatEntity shooter) {
         this.shooter = shooter;
 

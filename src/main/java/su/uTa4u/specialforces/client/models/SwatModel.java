@@ -28,9 +28,6 @@ public class SwatModel extends HumanoidModel<SwatEntity> {
             this.leftArm.xRot += 1.0f;
             this.head.xRot += 1.0f;
         }
-
-        // TODO: switch on entity.getSpecialty() to handle different animations
-//        this.animate(((SwatEntity) entity).idleAnimationState, SpecialForceAnimation.IDLE, ageInTicks, 1.0f);
     }
 
     public static LayerDefinition createBodyLayer() {

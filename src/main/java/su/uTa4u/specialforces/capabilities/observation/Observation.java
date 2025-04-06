@@ -1,11 +1,11 @@
 package su.uTa4u.specialforces.capabilities.observation;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -14,12 +14,13 @@ import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.ForgeEventFactory;
+import net.minecraftforge.registries.ForgeRegistries;
 import su.uTa4u.specialforces.Mission;
 import su.uTa4u.specialforces.Specialty;
+import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.*;
@@ -27,9 +28,6 @@ import java.util.*;
 public class Observation implements IObservation {
     private static final Set<Block> OBSERVATION_BLOCK_TARGETS = new HashSet<>();
     private static final Set<EntityType<? extends Entity>> OBSERVATION_ENTITY_TARGETS = new HashSet<>();
-    // TODO: CONFIG VALUE
-    private static final int TICK_COOLDOWN = 600;
-    private static final int MAX_SQUAD_COUNT = 2;
 
     private Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
     private Map<EntityType<? extends Entity>, List<UUID>> observedEntities = new HashMap<>();
@@ -38,20 +36,20 @@ public class Observation implements IObservation {
     private Mission swatMission = null;
 
     Observation() {
-        OBSERVATION_BLOCK_TARGETS.forEach(block -> this.observedBlocks.put(block, new ArrayList<>()));
-        OBSERVATION_ENTITY_TARGETS.forEach(entityType -> this.observedEntities.put(entityType, new ArrayList<>()));
     }
 
     @Override
     public void observe(Block block, BlockPos pos) {
-        if (this.swatMission == Mission.SCOUTING && !this.observedBlocks.get(block).contains(pos)) {
+        if (this.swatMission == Mission.SCOUTING &&
+                !this.observedBlocks.computeIfAbsent(block, k -> new ArrayList<>()).contains(pos)) {
             this.observedBlocks.get(block).add(pos);
         }
     }
 
     @Override
     public void observe(EntityType<? extends Entity> entityType, UUID uuid) {
-        if (this.swatMission == Mission.SCOUTING && !this.observedEntities.get(entityType).contains(uuid)) {
+        if (this.swatMission == Mission.SCOUTING &&
+                !this.observedEntities.computeIfAbsent(entityType, k -> new ArrayList<>()).contains(uuid)) {
             this.observedEntities.get(entityType).add(uuid);
         }
     }
@@ -78,21 +76,36 @@ public class Observation implements IObservation {
 
     @Override
     public void tick(Player player) {
-        if (player.tickCount - this.lastTick >= TICK_COOLDOWN) {
+        // Remove invalid observed entries.
+        // They might appear after observation targets were changed in config.
+        if (player.tickCount % 20 == 0) {
+            for (Block block : this.observedBlocks.keySet()) {
+                if (!OBSERVATION_BLOCK_TARGETS.contains(block)) {
+                    this.observedBlocks.remove(block);
+                }
+            }
+            for (EntityType<? extends Entity> entityType : this.observedEntities.keySet()) {
+                if (!OBSERVATION_ENTITY_TARGETS.contains(entityType)) {
+                    this.observedEntities.remove(entityType);
+                }
+            }
+        }
+
+        if (player.tickCount - this.lastTick >= CommonConfig.OBSERVATION_TICK_COOLDOWN.get()) {
             this.lastTick = player.tickCount;
 
             ServerLevel serverLevel = (ServerLevel) player.level();
             ServerPlayer serverPlayer = (ServerPlayer) player;
 
-            // Clear removed entities
-            this.commanders.removeIf(uuid -> serverLevel.getEntity(uuid) == null);
+            // Clear removed (null) or dead swat entities
+            this.commanders.removeIf(uuid -> !(serverLevel.getEntity(uuid) instanceof SwatEntity swat) || swat.getState() == SwatEntity.STATE_DEAD);
 
-            // If all commanders are dead, mission is failed
+            // If all commanders are dead, current mission is failed
             if (this.commanders.isEmpty()) {
                 this.swatMission = null;
             }
 
-            // Select a new Mission if previous one was failed, otherwise keep it
+            // Select a new Mission if previous one was failed
             if (this.swatMission == null) {
                 List<Mission> possibleMissions = new ArrayList<>();
                 if (!this.anyObservedBlocks()) {
@@ -109,15 +122,15 @@ public class Observation implements IObservation {
                 possibleMissions.add(Mission.SABOTAGE);
                 this.swatMission = possibleMissions.get(player.getRandom().nextInt(possibleMissions.size()));
 
-                // Notify the player that new swat mission is about to starting
+                // Notify the player that new swat mission is about to start
                 serverPlayer.sendSystemMessage(this.swatMission.getMessage().append(", ").append(serverPlayer.getDisplayName()));
             }
 
             // Spawn Mission Commander
             if (this.swatMission == null) return;
-            if (this.commanders.size() >= MAX_SQUAD_COUNT) return;
+            if (this.commanders.size() >= CommonConfig.OBSERVATION_SQUAD_COUNT.get()) return;
 
-            for (int i = 0; i < MAX_SQUAD_COUNT; ++i) {
+            for (int i = 0; i < CommonConfig.OBSERVATION_SQUAD_COUNT.get(); ++i) {
                 SwatEntity commander = SwatEntity.create(serverLevel, Specialty.COMMANDER, this.swatMission);
 
                 // Temporarily set commander's position to player to be able to get a random pos
@@ -131,6 +144,19 @@ public class Observation implements IObservation {
                 if (serverLevel.addFreshEntity(commander)) {
                     this.commanders.add(commander.getUUID());
                 }
+            }
+        }
+    }
+
+    private void validateObserved() {
+        for (Block block : this.observedBlocks.keySet()) {
+            if (!OBSERVATION_BLOCK_TARGETS.contains(block)) {
+                this.observedBlocks.remove(block);
+            }
+        }
+        for (EntityType<? extends Entity> entityType : this.observedEntities.keySet()) {
+            if (!OBSERVATION_ENTITY_TARGETS.contains(entityType)) {
+                this.observedEntities.remove(entityType);
             }
         }
     }
@@ -253,18 +279,22 @@ public class Observation implements IObservation {
     }
 
     private static String getBlockName(Block block) {
-        return BuiltInRegistries.BLOCK.getKey(block).getPath();
+        return Objects.requireNonNull(ForgeRegistries.BLOCKS.getKey(block)).getPath();
     }
 
     private static String getEntityTypeName(EntityType<?> entityType) {
-        return BuiltInRegistries.ENTITY_TYPE.getKey(entityType).getPath();
+        return Objects.requireNonNull(ForgeRegistries.ENTITY_TYPES.getKey(entityType)).getPath();
     }
 
-    static {
-        OBSERVATION_BLOCK_TARGETS.add(Blocks.CHEST);
-        OBSERVATION_BLOCK_TARGETS.add(Blocks.FURNACE);
+    public static void loadTargetsFromConfig() {
+        OBSERVATION_BLOCK_TARGETS.clear();
+        CommonConfig.OBSERVATION_BLOCK_TARGETS.get().stream()
+                .map((id) -> ForgeRegistries.BLOCKS.getValue(ResourceLocation.parse(id)))
+                .forEach(OBSERVATION_BLOCK_TARGETS::add);
 
-        OBSERVATION_ENTITY_TARGETS.add(EntityType.VILLAGER);
-        OBSERVATION_ENTITY_TARGETS.add(EntityType.COW);
+        OBSERVATION_ENTITY_TARGETS.clear();
+        CommonConfig.OBSERVATION_ENTITY_TARGETS.get().stream()
+                .map((id) -> ForgeRegistries.ENTITY_TYPES.getValue(ResourceLocation.parse(id)))
+                .forEach(OBSERVATION_ENTITY_TARGETS::add);
     }
 }

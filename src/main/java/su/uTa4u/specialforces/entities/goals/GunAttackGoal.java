@@ -7,14 +7,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
+import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.EnumSet;
 
 public class GunAttackGoal extends Goal {
-    // TODO: Should depend on roundsPerMinute stored in GunData
-    private static final int ATTACK_COOLDOWN = 40;
-
     private final SwatEntity shooter;
     private int lastAttackTick = 0;
     private boolean isAimingAtHead = false;
@@ -69,7 +67,7 @@ public class GunAttackGoal extends Goal {
 
         this.shooter.getLookControl().setLookAt(targetX, targetY, targetZ);
 
-        if (this.shooter.tickCount - lastAttackTick < ATTACK_COOLDOWN) return;
+        if (this.shooter.tickCount - lastAttackTick < CommonConfig.GUN_ATTACK_COOLDOWN.get()) return;
         lastAttackTick = this.shooter.tickCount;
 
         this.computeBulletPitchYaw(targetX, targetY, targetZ);
