@@ -121,6 +121,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     @Nullable
     @Override
+    @SuppressWarnings("deprecation")
     public SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor levelAccessor, @NotNull DifficultyInstance difficulty, @NotNull MobSpawnType spawnType, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
         if (spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.SPAWN_EGG) {
             this.setSpecialty(Specialty.getRandomSpecialty());
@@ -135,14 +136,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.copySpecialAttributes();
 
         return spawnData;
-    }
-
-    @Override
-    public void onAddedToWorld() {
-        super.onAddedToWorld();
-//        if (!this.level().isClientSide) {
-//            this.registerSpecialGoals();
-//        }
     }
 
     @NotNull
@@ -222,10 +215,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         LivingEntity target = this.getTarget();
         if (this.tacz$data.isCrawling && (target == null || target.isDeadOrDying() || this.getState() != STATE_ALIVE)) {
             this.crawl(false);
-        }
-
-        if (this.level().isClientSide) {
-            setupAnimationStates();
         }
 
         if (!this.level().isClientSide) {
@@ -327,50 +316,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.selected = nbt.getInt(NBT_KEY_SELECTED);
     }
 
-    private void setupAnimationStates() {
-//        if (this.idleAnimationTimeout <= 0) {
-//            this.idleAnimationTimeout = this.random.nextInt(32) + 32;
-//            this.idleAnimationState.start(this.tickCount);
-//        } else {
-//            --this.idleAnimationTimeout;
-//        }
-    }
-
-    /*
-    private void registerSpecialGoals() {
-        switch (this.getSpecialty()) {
-            case COMMANDER -> {
-                LOGGER.info("COMMANDER goals registered");
-            }
-            case ASSAULTER -> {
-                LOGGER.info("ASSAULTER goals registered");
-            }
-            case GRENADIER -> {
-                LOGGER.info("GRENADIER goals registered");
-            }
-            case BULLDOZER -> {
-                LOGGER.info("BULLDOZER goals registered");
-            }
-            case ENGINEER -> {
-                LOGGER.info("ENGINEER goals registered");
-            }
-            case SNIPER -> {
-                LOGGER.info("SNIPER goals registered");
-            }
-            case MEDIC -> {
-                LOGGER.info("MEDIC goals registered");
-            }
-            case SCOUT -> {
-                LOGGER.info("SCOUT goals registered");
-            }
-            case SPY -> {
-                LOGGER.info("SPY goals registered");
-            }
-        }
-    }
-    */
-
-    // TODO: Also register special and mission goals here, since the order in which they are registered matters
+    // TODO: Need to register special and mission goals here, since the order in which they are registered matters
+    //  however it is not actually possible since when this method is run
+    //  specialty is unset (set to Specialty.Commander by default) so is the mission.
     @Override
     protected void registerGoals() {
         int p = 0;
@@ -381,10 +329,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.goalSelector.addGoal(p++, new GunAttackPosGoal(this));
         this.goalSelector.addGoal(p++, new LookAtPlayerGoal(this, Player.class, 8.0f));
         this.goalSelector.addGoal(p++, new RandomLookAroundGoal(this));
-        this.goalSelector.addGoal(p++, new WaterAvoidingRandomStrollGoal(this, 1.0));
+        this.goalSelector.addGoal(p, new WaterAvoidingRandomStrollGoal(this, 1.0));
         p = 0;
         this.targetSelector.addGoal(p++, (new HurtByTargetGoal(this).setAlertOthers()));
-        this.targetSelector.addGoal(p++, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        this.targetSelector.addGoal(p, new NearestAttackableTargetGoal<>(this, Player.class, true));
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
@@ -879,6 +827,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         }
     }
 
+    @SuppressWarnings("unused")
     private int getFreeInvIndex() {
         for (int i = INV_INDEX_START; i <= INV_INDEX_END; ++i) {
             if (this.items.get(i).isEmpty()) {
@@ -1010,8 +959,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private NonNullList<ItemStack> getCompartment(int index) {
         NonNullList<ItemStack> ret = null;
         NonNullList<ItemStack> compartment;
-        for (Iterator<NonNullList<ItemStack>> iter = this.compartments.iterator(); iter.hasNext(); index -= compartment.size()) {
-            compartment = iter.next();
+        for (Iterator<NonNullList<ItemStack>> iterator = this.compartments.iterator(); iterator.hasNext(); index -= compartment.size()) {
+            compartment = iterator.next();
             if (index < compartment.size()) {
                 ret = compartment;
                 break;
