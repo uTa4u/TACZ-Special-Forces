@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraftforge.api.distmarker.Dist;
@@ -17,6 +18,7 @@ import su.uTa4u.specialforces.entities.SwatEntity;
 public class SwatRenderer extends HumanoidMobRenderer<SwatEntity, SwatModel> {
     public SwatRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new SwatModel(ctx.bakeLayer(ModModelLayers.SWAT)), 0.5f);
+        this.addLayer(new HumanoidArmorLayer<>(this, new SwatModel(ctx.bakeLayer(ModModelLayers.SWAT_INNER_ARMOR)), new SwatModel(ctx.bakeLayer(ModModelLayers.SWAT_OUTER_ARMOR)), ctx.getModelManager()));
     }
 
     @NotNull

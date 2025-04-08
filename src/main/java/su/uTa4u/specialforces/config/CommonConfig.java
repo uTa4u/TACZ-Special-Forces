@@ -28,8 +28,10 @@ public final class CommonConfig {
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN;
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_DEAD_BODY_LIFESPAN;
 
+    // TODO: Use EnumMap instead
     public static Map<Mission, ForgeConfigSpec.ConfigValue<List<? extends String>>> MISSION_PARTICIPANTS;
 
+    // TODO: Use EnumMap instead
     public static Map<Specialty, Map<Attribute, ForgeConfigSpec.DoubleValue>> SPECIALTY_ATTRIBUTES;
 
     private static ForgeConfigSpec init() {

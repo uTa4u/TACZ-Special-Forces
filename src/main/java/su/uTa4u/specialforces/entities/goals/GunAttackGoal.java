@@ -23,7 +23,7 @@ public class GunAttackGoal extends Goal {
     public GunAttackGoal(SwatEntity shooter) {
         this.shooter = shooter;
 
-        this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        this.setFlags(EnumSet.of(Flag.LOOK));
     }
 
     @Override
@@ -46,20 +46,12 @@ public class GunAttackGoal extends Goal {
         }
         this.shooter.aim(false);
         this.shooter.setAggressive(false);
-        this.shooter.getNavigation().stop();
     }
 
     @Override
     public void tick() {
         LivingEntity target = this.shooter.getTarget();
         if (target == null || target.isDeadOrDying()) return;
-
-        double dist = this.shooter.distanceToSqr(target);
-        if (dist > this.shooter.getGunAttackRadiusSqr() || !this.shooter.hasLineOfSight(target)) {
-            this.shooter.getNavigation().moveTo(target, 1.0);
-            return;
-        }
-        this.shooter.getNavigation().stop();
 
         double targetX = target.getX();
         double targetY = this.isAimingAtHead ? target.getEyeY() : getBodyY(target);

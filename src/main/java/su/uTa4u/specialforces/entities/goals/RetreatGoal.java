@@ -14,7 +14,6 @@ public class RetreatGoal extends Goal {
     private final SwatEntity shooter;
     private Vec3 retreatPos;
 
-    // TODO: move all moving code of SwatEntity in this class and rename to TacticalMoveGoal
     public RetreatGoal(SwatEntity shooter) {
         this.shooter = shooter;
 
@@ -25,7 +24,6 @@ public class RetreatGoal extends Goal {
     public boolean canUse() {
         LivingEntity lastHurt = this.shooter.getLastHurtByMob();
         if (lastHurt == null || lastHurt.isDeadOrDying()) return false;
-//        Vec3 retreatPos = DefaultRandomPos.getPosAway(this.shooter, RETREAT_DIST, 4, lastHurt.position());
         Vec3 retreatPos = LandRandomPos.getPosAway(this.shooter, RETREAT_DIST, 4, lastHurt.position());
         if (retreatPos == null) {
             return false;
@@ -49,7 +47,7 @@ public class RetreatGoal extends Goal {
             this.shooter.crawl(true);
         } else {
             if (this.retreatPos != null) {
-                float speed = this.shooter.getDataHolder().isCrawling ? 0.90f : 1.15f;
+                float speed = this.shooter.getDataHolder().isCrawling ? 0.60f : 1.4f;
                 this.shooter.getNavigation().moveTo(this.retreatPos.x, this.retreatPos.y, this.retreatPos.z, speed);
             }
         }

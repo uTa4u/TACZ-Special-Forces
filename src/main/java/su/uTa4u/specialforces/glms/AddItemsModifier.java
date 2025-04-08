@@ -70,13 +70,13 @@ public class AddItemsModifier extends LootModifier {
 
     public static class Entry {
         public static final Codec<Entry> CODEC = RecordCodecBuilder.create((inst) ->
-                        inst.group(
-                                ForgeRegistries.ITEMS.getCodec().fieldOf("item").forGetter(m -> m.item),
-                                Codec.intRange(1, 64).optionalFieldOf("count", 1).forGetter(m -> m.count),
-                                Codec.STRING.optionalFieldOf("nbt", "{}").forGetter(m -> m.nbt),
-                                Codec.floatRange(0.0f, 1.0f).optionalFieldOf("chance", 1.0f).forGetter(m -> m.chance)
-                        ).apply(inst, Entry::new)
-                );
+                inst.group(
+                        ForgeRegistries.ITEMS.getCodec().fieldOf("item").forGetter(m -> m.item),
+                        Codec.intRange(1, 64).optionalFieldOf("count", 1).forGetter(m -> m.count),
+                        Codec.STRING.optionalFieldOf("nbt", "{}").forGetter(m -> m.nbt),
+                        Codec.floatRange(0.0f, 1.0f).optionalFieldOf("chance", 1.0f).forGetter(m -> m.chance)
+                ).apply(inst, Entry::new)
+        );
 
         private final Item item;
         private final int count;

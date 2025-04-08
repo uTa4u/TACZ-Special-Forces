@@ -81,6 +81,8 @@ dependencies {
 
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
     runtimeOnly fg.deobf("curse.maven:retro-damage-indicators-1003431:5268035")
+    runtimeOnly fg.deobf("curse.maven:lesraisins-armor-1021131:5686783")
+    runtimeOnly fg.deobf("curse.maven:geckolib-388172:6333474")
 }
 
 tasks.named('processResources', ProcessResources).configure {

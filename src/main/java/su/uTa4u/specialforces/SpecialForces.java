@@ -1,6 +1,9 @@
 package su.uTa4u.specialforces;
 
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.model.HumanoidArmorModel;
+import net.minecraft.client.model.geom.LayerDefinitions;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraftforge.api.distmarker.Dist;
@@ -54,6 +57,8 @@ public class SpecialForces {
         @SubscribeEvent
         public static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
             event.registerLayerDefinition(ModModelLayers.SWAT, SwatModel::createBodyLayer);
+            event.registerLayerDefinition(ModModelLayers.SWAT_INNER_ARMOR, () -> LayerDefinition.create(HumanoidArmorModel.createBodyLayer(LayerDefinitions.INNER_ARMOR_DEFORMATION), 64, 32));
+            event.registerLayerDefinition(ModModelLayers.SWAT_OUTER_ARMOR, () -> LayerDefinition.create(HumanoidArmorModel.createBodyLayer(LayerDefinitions.OUTER_ARMOR_DEFORMATION), 64, 32));
         }
 
         @SubscribeEvent

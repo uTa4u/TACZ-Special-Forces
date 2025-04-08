@@ -1,6 +1,7 @@
 package su.uTa4u.specialforces.entities;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
@@ -14,6 +15,7 @@ import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.custom.EffectiveRangeModifier;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -33,9 +35,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Inventory;
@@ -63,6 +63,7 @@ import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
+import su.uTa4u.specialforces.entities.goals.GunAttackPosGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
@@ -141,7 +142,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     protected InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
         Level level = player.level();
 
-        // TODO: make this into a command
+        // For debug purposes
         if (!level.isClientSide && player.isCreative() && this.isInvulnerable() && player.getMainHandItem().is(Items.WOODEN_AXE)) {
             this.remove(RemovalReason.KILLED);
             return InteractionResult.SUCCESS;
@@ -165,6 +166,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         if (this.getHealth() > DOWN_HEALTH_THRESHOLD) {
             // Swat Entity has healed above threshold
             this.setState(STATE_ALIVE);
+            this.goalSelector.enableControlFlag(Goal.Flag.MOVE);
             this.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
         }
     }
@@ -181,8 +183,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             // Swat Entity goes down. It can attack, but can't move.
             // Can heal and be healed, if health goes above the threshold, it goes up.
             this.setState(STATE_DOWN);
-            // TODO: set disabled flag MOVE instead, but factor out movement code from
-            //  GunAttackGoal first. Into RetreatGoal and rename it to TacticalMoveGoal, maybe?
+            // TODO: do something to stop it from moving completely
+            // Why is this not enough?
+            this.goalSelector.disableControlFlag(Goal.Flag.MOVE);
+            // Whatever, this WILL be enough
             this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, MobEffectInstance.INFINITE_DURATION, Short.MAX_VALUE));
 
             if (hpAfterDmg <= 0.0f) {
@@ -192,6 +196,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 this.setInvulnerable(true);
                 this.setHealth(1.0f);
                 this.removeFreeWill();
+                this.removeAllEffects();
                 this.deadBodyAge = 0;
                 // TODO: Maybe remove random items from inventory
                 return;
@@ -247,7 +252,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                         SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
                         squadMember.setPos(pos);
                         squadMember.setTarget(target);
-                        ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(squadMember.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
+                        ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(BlockPos.containing(squadMember.position())), MobSpawnType.MOB_SUMMONED, null, null);
                         if (serverLevel.addFreshEntity(squadMember)) {
                             this.squad.add(squadMember);
                         }
@@ -276,9 +281,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         nbt.putString("specialty", this.getSpecialty().getName());
         nbt.putByte("state", this.getState());
 
-        ContainerHelper.saveAllItems(nbt, this.items);
-        ContainerHelper.saveAllItems(nbt, this.armor);
-        ContainerHelper.saveAllItems(nbt, this.offhand);
+        nbt.put("inventory", this.saveCompartments(new ListTag()));
+        nbt.putInt("selectedIndex", this.selectedIndex);
     }
 
     @Override
@@ -311,11 +315,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
         if (nbt.contains("state")) this.setState(nbt.getByte("state"));
 
-        ContainerHelper.loadAllItems(nbt, this.items);
-        ContainerHelper.loadAllItems(nbt, this.armor);
-        ContainerHelper.loadAllItems(nbt, this.offhand);
-
-        // TODO: fix entities having their health set to 20 if it was lower when saving
+        this.loadCompartments(nbt.getList("inventory", 10));
+        this.selectedIndex = nbt.getInt("selectedIndex");
     }
 
     private void setupAnimationStates() {
@@ -364,16 +365,18 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     // TODO: Also register special and mission goals here, since the order in which they are registered matters
     @Override
     protected void registerGoals() {
-        this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new RetreatGoal(this));
-        this.goalSelector.addGoal(2, new GunAttackGoal(this));
-        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0f));
-        this.goalSelector.addGoal(4, new WaterAvoidingRandomStrollGoal(this, 1.0));
-        // TODO: Use potion
-        // TODO: RandomLookAroundGoal
-        // TODO: Alert others
-        this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        int p = 0;
+        this.goalSelector.addGoal(p++, new FloatGoal(this));
+        this.goalSelector.addGoal(p++, new RetreatGoal(this));
+        // TODO: Use potions
+        this.goalSelector.addGoal(p++, new GunAttackGoal(this));
+        this.goalSelector.addGoal(p++, new GunAttackPosGoal(this));
+        this.goalSelector.addGoal(p++, new LookAtPlayerGoal(this, Player.class, 8.0f));
+        this.goalSelector.addGoal(p++, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(p++, new WaterAvoidingRandomStrollGoal(this, 1.0));
+        p = 0;
+        this.targetSelector.addGoal(p++, (new HurtByTargetGoal(this).setAlertOthers()));
+        this.targetSelector.addGoal(p++, new NearestAttackableTargetGoal<>(this, Player.class, true));
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
@@ -395,10 +398,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         LootTable lootTable = serverLevel.getServer().getLootData().getLootTable(this.getSpecialty().getLootTable());
         LootParams lootParams = new LootParams.Builder(serverLevel).create(LootContextParamSets.EMPTY);
 
-        // TODO: shuffle and split items like how LootTable#fill does
         ObjectArrayList<ItemStack> itemStacks = lootTable.getRandomItems(lootParams);
+        List<Integer> indices = this.getAvailableInvSlotsShuffled();
+        Util.shuffleAndSplitItems(itemStacks, indices.size(), this.random);
+
         for (int i = itemStacks.size() - 1; i >= 0; --i) {
             ItemStack itemStack = itemStacks.remove(i);
+            // Place certain items in certain places
             if (itemStack.is(ModTags.Items.RULE_HOTBAR) && this.getFreeHotbarIndex() != -1) {
                 this.items.set(this.getFreeHotbarIndex(), itemStack);
             } else if (itemStack.canEquip(EquipmentSlot.HEAD, this) && this.armor.get(0).isEmpty()) {
@@ -411,11 +417,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 this.armor.set(3, itemStack);
             } else if (itemStack.is(ModTags.Items.RULE_OFFHAND) && this.offhand.get(0).isEmpty()) {
                 this.offhand.set(0, itemStack);
-            } else {
-                int index = this.getFreeInvIndex();
-                if (index != -1) {
-                    this.items.set(index, itemStack);
-                }
+            } else if (!itemStack.isEmpty()) {
+                // The rest is placed in the random places
+                this.items.set(indices.remove(indices.size() - 1), itemStack);
             }
         }
     }
@@ -459,7 +463,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         });
 
         ItemStack nextGun = potentialNextGuns.get(0);
-        this.setItemInHand(InteractionHand.MAIN_HAND, nextGun);
 
         // If nextGun is not on hotbar, we swap it there
         int index = potentialNextGunIndices.get(nextGun);
@@ -467,16 +470,55 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             int hotbarIndex = this.getFreeHotbarIndex();
             if (hotbarIndex == -1) hotbarIndex = this.random.nextInt(HOTBAR_INDEX_END + 1);
             this.swapItems(index, hotbarIndex);
+            index = hotbarIndex;
         }
+        this.selectedIndex = index;
 
         this.currentGunAttackRadiusSqr = 0.0f;
         AttachmentCacheProperty prop = new AttachmentCacheProperty();
         prop.eval(nextGun, potentialNextGunIndexes.get(nextGun).getGunData());
         this.updateCacheProperty(prop);
-        // TODO: This is sus ngl
+        // This is sus ngl
         this.tacz$data.currentGunItem = () -> nextGun;
         float effectiveRange = prop.getCache(EffectiveRangeModifier.ID);
         this.currentGunAttackRadiusSqr = (float) (effectiveRange * effectiveRange * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get() * CommonConfig.SWAT_ENTITY_EFFECTIVE_RANGE_MULT.get());
+    }
+
+    @NotNull
+    @Override
+    public ItemStack getItemBySlot(@NotNull EquipmentSlot slot) {
+        if (slot == EquipmentSlot.MAINHAND) {
+            return this.getSelectedItem();
+        } else if (slot == EquipmentSlot.OFFHAND) {
+            return this.offhand.get(0);
+        } else if (slot.isArmor()) {
+            return this.armor.get(3 - slot.getIndex());
+        }
+        return ItemStack.EMPTY;
+    }
+
+    @Override
+    public void setItemSlot(@NotNull EquipmentSlot slot, @NotNull ItemStack itemStack) {
+        this.verifyEquippedItem(itemStack);
+        if (slot == EquipmentSlot.MAINHAND) {
+            this.onEquipItem(slot, this.items.set(this.selectedIndex, itemStack), itemStack);
+        } else if (slot == EquipmentSlot.OFFHAND) {
+            this.onEquipItem(slot, this.offhand.set(0, itemStack), itemStack);
+        } else if (slot.getType() == EquipmentSlot.Type.ARMOR) {
+            this.onEquipItem(slot, this.armor.set(3 - slot.getIndex(), itemStack), itemStack);
+        }
+    }
+
+    @NotNull
+    @Override
+    public Iterable<ItemStack> getArmorSlots() {
+        return this.armor;
+    }
+
+    @NotNull
+    @Override
+    public Iterable<ItemStack> getHandSlots() {
+        return Lists.newArrayList(this.getMainHandItem(), this.getOffhandItem());
     }
 
     @Override
@@ -740,6 +782,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private final NonNullList<ItemStack> offhand = NonNullList.withSize(SWAT_OFFHAND_SIZE, ItemStack.EMPTY);
     private final List<NonNullList<ItemStack>> compartments = ImmutableList.of(this.items, this.armor, this.offhand);
     private LazyOptional<?> itemHandler = LazyOptional.of(() -> new InvWrapper(this));
+    private int selectedIndex;
 
     @NotNull
     @Override
@@ -820,6 +863,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         return -1;
     }
 
+    private ItemStack getSelectedItem() {
+        if (HOTBAR_INDEX_START <= this.selectedIndex && this.selectedIndex <= HOTBAR_INDEX_END) {
+            return this.items.get(this.selectedIndex);
+        } else {
+            return ItemStack.EMPTY;
+        }
+    }
+
     private int getFreeInvIndex() {
         for (int i = INV_INDEX_START; i <= INV_INDEX_END; ++i) {
             if (this.items.get(i).isEmpty()) {
@@ -827,6 +878,73 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
         }
         return -1;
+    }
+
+    private ListTag saveCompartments(ListTag listTag) {
+        int index;
+        CompoundTag slot;
+        ItemStack itemStack;
+        for (index = 0; index < this.items.size(); ++index) {
+            itemStack = this.items.get(index);
+            if (!itemStack.isEmpty()) {
+                slot = new CompoundTag();
+                slot.putByte("slot", (byte) index);
+                itemStack.save(slot);
+                listTag.add(slot);
+            }
+        }
+        for (index = 0; index < this.armor.size(); ++index) {
+            itemStack = this.armor.get(index);
+            if (!itemStack.isEmpty()) {
+                slot = new CompoundTag();
+                slot.putByte("slot", (byte) (index + 100));
+                itemStack.save(slot);
+                listTag.add(slot);
+            }
+        }
+        for (index = 0; index < this.offhand.size(); ++index) {
+            itemStack = this.offhand.get(index);
+            if (!itemStack.isEmpty()) {
+                slot = new CompoundTag();
+                slot.putByte("slot", (byte) (index + 150));
+                itemStack.save(slot);
+                listTag.add(slot);
+            }
+        }
+
+        return listTag;
+    }
+
+    private void loadCompartments(ListTag listTag) {
+        this.items.clear();
+        this.armor.clear();
+        this.offhand.clear();
+        for (int i = 0; i < listTag.size(); ++i) {
+            CompoundTag slot = listTag.getCompound(i);
+            int index = slot.getByte("slot") & 255;
+            ItemStack itemStack = ItemStack.of(slot);
+            if (!itemStack.isEmpty()) {
+                // 0 <= index is always true
+                if (index < this.items.size()) {
+                    this.items.set(index, itemStack);
+                } else if (100 <= index && index < this.armor.size() + 100) {
+                    this.armor.set(index - 100, itemStack);
+                } else if (150 <= index && index < this.offhand.size() + 150) {
+                    this.offhand.set(index - 150, itemStack);
+                }
+            }
+        }
+    }
+
+    private List<Integer> getAvailableInvSlotsShuffled() {
+        ObjectArrayList<Integer> indices = new ObjectArrayList<>();
+        for (int i = INV_INDEX_START; i <= INV_INDEX_END; ++i) {
+            if (this.items.get(i).isEmpty()) {
+                indices.add(i);
+            }
+        }
+        net.minecraft.Util.shuffle(indices, this.random);
+        return indices;
     }
 
     @Override
