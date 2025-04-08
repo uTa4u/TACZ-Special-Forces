@@ -72,6 +72,14 @@ import java.util.function.Supplier;
 
 public class SwatEntity extends PathfinderMob implements IGunOperator, Container, MenuProvider {
     // private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String NBT_KEY_DEAD_BODE_AGE = "DeadBodyAge";
+    private static final String NBT_KEY_MISSION = "Mission";
+    private static final String NBT_KEY_SQUAD = "Squad";
+    private static final String NBT_KEY_SPECIALTY = "Specialty";
+    private static final String NBT_KEY_STATE = "State";
+    private static final String NBT_KEY_INVENTORY = "Inventory";
+    private static final String NBT_KEY_SELECTED = "Selected";
+
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
     private static final EntityDataAccessor<Byte> STATE = SynchedEntityData.defineId(SwatEntity.class, EntityDataSerializers.BYTE);
@@ -266,38 +274,38 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public void addAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
 
-        nbt.putShort("deadBodyAge", this.deadBodyAge);
+        nbt.putShort(NBT_KEY_DEAD_BODE_AGE, this.deadBodyAge);
 
         if (this.mission != null) {
-            nbt.putString("mission", this.mission.getName());
+            nbt.putString(NBT_KEY_MISSION, this.mission.getName());
         }
 
         if (this.squad != null) {
             ListTag squadTag = new ListTag();
             this.squad.forEach(swatEntity -> squadTag.add(NbtUtils.createUUID(swatEntity.getUUID())));
-            nbt.put("squad", squadTag);
+            nbt.put(NBT_KEY_SQUAD, squadTag);
         }
 
-        nbt.putString("specialty", this.getSpecialty().getName());
-        nbt.putByte("state", this.getState());
+        nbt.putString(NBT_KEY_SPECIALTY, this.getSpecialty().getName());
+        nbt.putByte(NBT_KEY_STATE, this.getState());
 
-        nbt.put("inventory", this.saveCompartments(new ListTag()));
-        nbt.putInt("selectedIndex", this.selectedIndex);
+        nbt.put(NBT_KEY_INVENTORY, this.saveCompartments(new ListTag()));
+        nbt.putInt(NBT_KEY_SELECTED, this.selected);
     }
 
     @Override
     public void readAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
 
-        this.deadBodyAge = nbt.getShort("deadBodyAge");
+        this.deadBodyAge = nbt.getShort(NBT_KEY_DEAD_BODE_AGE);
 
         if (nbt.contains("swatMission")) {
-            Mission mission = Mission.byName(nbt.getString("mission"));
+            Mission mission = Mission.byName(nbt.getString(NBT_KEY_MISSION));
             if (mission != null) this.mission = mission;
         }
 
         if (this.squad != null && this.level() instanceof ServerLevel serverLevel) {
-            Tag tag = nbt.get("squad");
+            Tag tag = nbt.get(NBT_KEY_SQUAD);
             if (tag instanceof ListTag squadTag && !squadTag.isEmpty()) {
                 for (Tag t : squadTag) {
                     Entity entity = serverLevel.getEntity(NbtUtils.loadUUID(t));
@@ -308,15 +316,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
         }
 
-        if (nbt.contains("specialty")) {
-            Specialty spec = Specialty.byName(nbt.getString("specialty"));
+        if (nbt.contains(NBT_KEY_SPECIALTY)) {
+            Specialty spec = Specialty.byName(nbt.getString(NBT_KEY_SPECIALTY));
             if (spec != null) this.setSpecialty(spec);
         }
 
-        if (nbt.contains("state")) this.setState(nbt.getByte("state"));
+        if (nbt.contains(NBT_KEY_STATE)) this.setState(nbt.getByte(NBT_KEY_STATE));
 
-        this.loadCompartments(nbt.getList("inventory", 10));
-        this.selectedIndex = nbt.getInt("selectedIndex");
+        this.loadCompartments(nbt.getList(NBT_KEY_INVENTORY, 10));
+        this.selected = nbt.getInt(NBT_KEY_SELECTED);
     }
 
     private void setupAnimationStates() {
@@ -472,7 +480,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             this.swapItems(index, hotbarIndex);
             index = hotbarIndex;
         }
-        this.selectedIndex = index;
+        this.selected = index;
 
         this.currentGunAttackRadiusSqr = 0.0f;
         AttachmentCacheProperty prop = new AttachmentCacheProperty();
@@ -501,7 +509,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public void setItemSlot(@NotNull EquipmentSlot slot, @NotNull ItemStack itemStack) {
         this.verifyEquippedItem(itemStack);
         if (slot == EquipmentSlot.MAINHAND) {
-            this.onEquipItem(slot, this.items.set(this.selectedIndex, itemStack), itemStack);
+            this.onEquipItem(slot, this.items.set(this.selected, itemStack), itemStack);
         } else if (slot == EquipmentSlot.OFFHAND) {
             this.onEquipItem(slot, this.offhand.set(0, itemStack), itemStack);
         } else if (slot.getType() == EquipmentSlot.Type.ARMOR) {
@@ -782,7 +790,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private final NonNullList<ItemStack> offhand = NonNullList.withSize(SWAT_OFFHAND_SIZE, ItemStack.EMPTY);
     private final List<NonNullList<ItemStack>> compartments = ImmutableList.of(this.items, this.armor, this.offhand);
     private LazyOptional<?> itemHandler = LazyOptional.of(() -> new InvWrapper(this));
-    private int selectedIndex;
+    private int selected;
 
     @NotNull
     @Override
@@ -864,8 +872,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     private ItemStack getSelectedItem() {
-        if (HOTBAR_INDEX_START <= this.selectedIndex && this.selectedIndex <= HOTBAR_INDEX_END) {
-            return this.items.get(this.selectedIndex);
+        if (HOTBAR_INDEX_START <= this.selected && this.selected <= HOTBAR_INDEX_END) {
+            return this.items.get(this.selected);
         } else {
             return ItemStack.EMPTY;
         }

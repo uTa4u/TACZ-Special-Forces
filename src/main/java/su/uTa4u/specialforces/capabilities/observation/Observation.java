@@ -14,7 +14,6 @@ import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -26,6 +25,11 @@ import su.uTa4u.specialforces.entities.SwatEntity;
 import java.util.*;
 
 public class Observation implements IObservation {
+    private static final String NBT_KEY_SWAT_MISSION = "SwatMission";
+    private static final String NBT_KEY_COMMANDERS = "Commanders";
+    private static final String NBT_KEY_BLOCKS = "Blocks";
+    private static final String NBT_KEY_ENTITIES = "Entities";
+
     private static final Set<Block> OBSERVATION_BLOCK_TARGETS = new HashSet<>();
     private static final Set<EntityType<? extends Entity>> OBSERVATION_ENTITY_TARGETS = new HashSet<>();
 
@@ -79,16 +83,7 @@ public class Observation implements IObservation {
         // Remove invalid observed entries.
         // They might appear after observation targets were changed in config.
         if (player.tickCount % 20 == 0) {
-            for (Block block : this.observedBlocks.keySet()) {
-                if (!OBSERVATION_BLOCK_TARGETS.contains(block)) {
-                    this.observedBlocks.remove(block);
-                }
-            }
-            for (EntityType<? extends Entity> entityType : this.observedEntities.keySet()) {
-                if (!OBSERVATION_ENTITY_TARGETS.contains(entityType)) {
-                    this.observedEntities.remove(entityType);
-                }
-            }
+            this.validateObserved();
         }
 
         if (player.tickCount - this.lastTick >= CommonConfig.OBSERVATION_TICK_COOLDOWN.get()) {
@@ -150,12 +145,12 @@ public class Observation implements IObservation {
 
     private void validateObserved() {
         for (Block block : this.observedBlocks.keySet()) {
-            if (!OBSERVATION_BLOCK_TARGETS.contains(block)) {
+            if (!isObserved(block)) {
                 this.observedBlocks.remove(block);
             }
         }
         for (EntityType<? extends Entity> entityType : this.observedEntities.keySet()) {
-            if (!OBSERVATION_ENTITY_TARGETS.contains(entityType)) {
+            if (!isObserved(entityType)) {
                 this.observedEntities.remove(entityType);
             }
         }
@@ -174,12 +169,12 @@ public class Observation implements IObservation {
         CompoundTag nbt = new CompoundTag();
 
         if (this.swatMission != null) {
-            nbt.putString("swatMission", this.swatMission.getName());
+            nbt.putString(NBT_KEY_SWAT_MISSION, this.swatMission.getName());
         }
 
         ListTag spawnedUUIDsTag = new ListTag();
         this.commanders.forEach(uuid -> spawnedUUIDsTag.add(NbtUtils.createUUID(uuid)));
-        nbt.put("commanders", spawnedUUIDsTag);
+        nbt.put(NBT_KEY_COMMANDERS, spawnedUUIDsTag);
 
         CompoundTag blocksTag = new CompoundTag();
         this.observedBlocks.forEach((block, list) -> {
@@ -189,7 +184,7 @@ public class Observation implements IObservation {
             }
             blocksTag.put(getBlockName(block), blockTag);
         });
-        nbt.put("blocks", blocksTag);
+        nbt.put(NBT_KEY_BLOCKS, blocksTag);
 
         CompoundTag entitiesTag = new CompoundTag();
         this.observedEntities.forEach((entityType, list) -> {
@@ -199,7 +194,7 @@ public class Observation implements IObservation {
             }
             entitiesTag.put(getEntityTypeName(entityType), entityTypeTag);
         });
-        nbt.put("entities", entitiesTag);
+        nbt.put(NBT_KEY_ENTITIES, entitiesTag);
 
         return nbt;
     }
@@ -207,19 +202,19 @@ public class Observation implements IObservation {
     @Override
     public void deserializeNBT(CompoundTag nbt) {
 
-        if (nbt.contains("swatMission")) {
-            Mission mission = Mission.byName(nbt.getString("swatMission"));
+        if (nbt.contains(NBT_KEY_SWAT_MISSION)) {
+            Mission mission = Mission.byName(nbt.getString(NBT_KEY_SWAT_MISSION));
             if (mission != null) this.swatMission = mission;
         }
 
-        Tag tag = nbt.get("commanders");
+        Tag tag = nbt.get(NBT_KEY_COMMANDERS);
         if (tag instanceof ListTag commandersTag && !commandersTag.isEmpty()) {
             for (Tag t : commandersTag) {
                 this.commanders.add(NbtUtils.loadUUID(t));
             }
         }
 
-        CompoundTag blocksTag = (CompoundTag) nbt.get("blocks");
+        CompoundTag blocksTag = (CompoundTag) nbt.get(NBT_KEY_BLOCKS);
         if (blocksTag != null) {
             for (Block block : OBSERVATION_BLOCK_TARGETS) {
                 tag = blocksTag.get(getBlockName(block));
@@ -232,7 +227,7 @@ public class Observation implements IObservation {
             }
         }
 
-        CompoundTag entitiesTag = (CompoundTag) nbt.get("entities");
+        CompoundTag entitiesTag = (CompoundTag) nbt.get(NBT_KEY_ENTITIES);
         if (entitiesTag != null) {
             for (EntityType<?> entityType : OBSERVATION_ENTITY_TARGETS) {
                 tag = entitiesTag.get(getEntityTypeName(entityType));
@@ -248,10 +243,6 @@ public class Observation implements IObservation {
 
     public static boolean isObserved(Block block) {
         return OBSERVATION_BLOCK_TARGETS.contains(block);
-    }
-
-    public static boolean isObserved(BlockState blockState) {
-        return isObserved(blockState.getBlock());
     }
 
     public static boolean isObserved(EntityType<?> entityType) {
