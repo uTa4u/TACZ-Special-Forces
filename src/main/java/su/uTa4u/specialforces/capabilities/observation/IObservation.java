@@ -28,7 +28,7 @@ public interface IObservation extends INBTSerializable<CompoundTag> {
 
     void observe(EntityType<? extends Entity> entityType, UUID uuid);
 
-    int getLastTick();
+    int getTickTimer();
 
     List<UUID> getCommanders();
 

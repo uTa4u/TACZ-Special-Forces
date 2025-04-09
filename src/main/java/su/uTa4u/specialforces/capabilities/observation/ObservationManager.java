@@ -32,7 +32,7 @@ public class ObservationManager {
 
     @SubscribeEvent
     public static void onPlayerTickEvent(TickEvent.PlayerTickEvent event) {
-        if (event.side.isClient() || event.phase != TickEvent.Phase.START) return;
+        if (event.side.isClient() || event.phase != TickEvent.Phase.END) return;
         ifCapPresent(event.player, cap -> cap.tick(event.player));
     }
 
@@ -42,7 +42,7 @@ public class ObservationManager {
         if (level.isClientSide || event.getHand() != InteractionHand.MAIN_HAND) return;
         BlockPos pos = event.getPos();
         Block block = level.getBlockState(pos).getBlock();
-        if (Observation.isObserved(block)) {
+        if (Observation.isObservationTarget(block)) {
             ifCapPresent(event.getEntity(), cap -> cap.observe(block, pos));
         }
     }

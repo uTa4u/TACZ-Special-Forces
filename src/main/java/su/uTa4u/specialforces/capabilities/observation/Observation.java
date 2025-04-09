@@ -29,13 +29,14 @@ public class Observation implements IObservation {
     private static final String NBT_KEY_COMMANDERS = "Commanders";
     private static final String NBT_KEY_BLOCKS = "Blocks";
     private static final String NBT_KEY_ENTITIES = "Entities";
+    private static final String NBT_KEY_TICK_TIMER = "TickTimer";
 
     private static final Set<Block> OBSERVATION_BLOCK_TARGETS = new HashSet<>();
     private static final Set<EntityType<? extends Entity>> OBSERVATION_ENTITY_TARGETS = new HashSet<>();
 
     private Map<Block, List<BlockPos>> observedBlocks = new HashMap<>();
     private Map<EntityType<? extends Entity>, List<UUID>> observedEntities = new HashMap<>();
-    private int lastTick = 0;
+    private int tickTimer = 0;
     private List<UUID> commanders = new ArrayList<>();
     private Mission swatMission = null;
 
@@ -59,8 +60,8 @@ public class Observation implements IObservation {
     }
 
     @Override
-    public int getLastTick() {
-        return this.lastTick;
+    public int getTickTimer() {
+        return this.tickTimer;
     }
 
     @Override
@@ -86,14 +87,15 @@ public class Observation implements IObservation {
             this.validateObserved();
         }
 
-        if (player.tickCount - this.lastTick >= CommonConfig.OBSERVATION_TICK_COOLDOWN.get()) {
-            this.lastTick = player.tickCount;
+        this.tickTimer += 1;
+        if (this.tickTimer >= CommonConfig.OBSERVATION_TICK_COOLDOWN.get()) {
+            this.tickTimer = 0;
 
             ServerLevel serverLevel = (ServerLevel) player.level();
             ServerPlayer serverPlayer = (ServerPlayer) player;
 
-            // Clear removed (null) or dead swat entities
-            this.commanders.removeIf(uuid -> !(serverLevel.getEntity(uuid) instanceof SwatEntity swat) || swat.isRemoved() || swat.getState() == SwatEntity.STATE_DEAD);
+            // Clear invalid swat commanders
+            this.commanders.removeIf((uuid) -> isCommanderInvalid(uuid, serverLevel));
 
             // If all commanders are dead, current mission is failed
             if (this.commanders.isEmpty()) {
@@ -130,7 +132,7 @@ public class Observation implements IObservation {
 
                 // Temporarily set commander's position to player to be able to get a random pos
                 commander.setPos(player.position());
-                Vec3 pos = LandRandomPos.getPos(commander, 127, 15);
+                Vec3 pos = LandRandomPos.getPos(commander, 64, 15);
                 if (pos == null) continue;
 
                 commander.setPos(pos);
@@ -138,6 +140,7 @@ public class Observation implements IObservation {
                 ForgeEventFactory.onFinalizeSpawn(commander, serverLevel, serverLevel.getCurrentDifficultyAt(commander.getOnPos()), MobSpawnType.MOB_SUMMONED, null, null);
                 if (serverLevel.addFreshEntity(commander)) {
                     this.commanders.add(commander.getUUID());
+                    commander.summonSquadNextTick();
                 }
             }
         }
@@ -145,12 +148,12 @@ public class Observation implements IObservation {
 
     private void validateObserved() {
         for (Block block : this.observedBlocks.keySet()) {
-            if (!isObserved(block)) {
+            if (!isObservationTarget(block)) {
                 this.observedBlocks.remove(block);
             }
         }
         for (EntityType<? extends Entity> entityType : this.observedEntities.keySet()) {
-            if (!isObserved(entityType)) {
+            if (!isObservationTarget(entityType)) {
                 this.observedEntities.remove(entityType);
             }
         }
@@ -158,7 +161,7 @@ public class Observation implements IObservation {
 
     @Override
     public void copy(IObservation other) {
-        this.lastTick = other.getLastTick();
+        this.tickTimer = other.getTickTimer();
         this.commanders = other.getCommanders();
         this.observedBlocks = other.getObservedBlocks();
         this.observedEntities = other.getObservedEntities();
@@ -167,6 +170,8 @@ public class Observation implements IObservation {
     @Override
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
+
+        nbt.putInt(NBT_KEY_TICK_TIMER, this.tickTimer);
 
         if (this.swatMission != null) {
             nbt.putString(NBT_KEY_SWAT_MISSION, this.swatMission.getName());
@@ -201,6 +206,8 @@ public class Observation implements IObservation {
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
+
+        this.tickTimer = nbt.getInt(NBT_KEY_TICK_TIMER);
 
         if (nbt.contains(NBT_KEY_SWAT_MISSION)) {
             Mission mission = Mission.byName(nbt.getString(NBT_KEY_SWAT_MISSION));
@@ -241,11 +248,11 @@ public class Observation implements IObservation {
         }
     }
 
-    public static boolean isObserved(Block block) {
+    public static boolean isObservationTarget(Block block) {
         return OBSERVATION_BLOCK_TARGETS.contains(block);
     }
 
-    public static boolean isObserved(EntityType<?> entityType) {
+    public static boolean isObservationTarget(EntityType<?> entityType) {
         return OBSERVATION_ENTITY_TARGETS.contains(entityType);
     }
 
@@ -267,6 +274,14 @@ public class Observation implements IObservation {
             }
         }
         return false;
+    }
+
+    private static boolean isCommanderInvalid(UUID uuid, ServerLevel serverLevel) {
+        return !(serverLevel.getEntity(uuid) instanceof SwatEntity swat)
+                || swat.isRemoved()
+                || swat.getState() == SwatEntity.STATE_DEAD
+                || !swat.hasMission()
+                || !swat.hasSquad();
     }
 
     private static String getBlockName(Block block) {

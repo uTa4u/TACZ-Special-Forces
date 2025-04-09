@@ -38,6 +38,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.ai.util.GoalUtils;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -79,6 +81,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final String NBT_KEY_STATE = "State";
     private static final String NBT_KEY_INVENTORY = "Inventory";
     private static final String NBT_KEY_SELECTED = "Selected";
+    private static final String NBT_KEY_SQUAD_SUMMON_TIMER = "SquadTimer";
+    private static final String NBT_KEY_FAILED_GUN_POS_COUNTER = "GunPosCounter";
 
     private static final EntityDimensions BOX_DIMENSIONS = EntityDimensions.scalable(0.6f, 0.6f);
     private static final EntityDataAccessor<Specialty> SPECIALTY = SynchedEntityData.defineId(SwatEntity.class, ModEntityDataSerializers.SPECIAL_FORCE_SPECIALTY);
@@ -93,9 +97,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     // TODO: this should be a percentage value of max health depending on Specialty
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
 
-    private int lastSquadSummonTick = 0;
+    private int squadSummonTimer = 0;
     private short deadBodyAge = 0;
     private float currentGunAttackRadiusSqr;
+    private int failedGunPosCounter = 0;
 
     // Only commanders have these field set to non-null
     @Nullable
@@ -210,7 +215,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     public void tick() {
         super.tick();
-        this.taczTick();
 
         LivingEntity target = this.getTarget();
         if (this.tacz$data.isCrawling && (target == null || target.isDeadOrDying() || this.getState() != STATE_ALIVE)) {
@@ -218,6 +222,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         }
 
         if (!this.level().isClientSide) {
+            this.taczTick();
+
             ServerLevel serverLevel = (ServerLevel) this.level();
 
             // Check if dead body should despawn
@@ -229,14 +235,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
 
             if (this.getSpecialty() == Specialty.COMMANDER && this.squad != null) {
-                // Clear removed (null) or dead swat entities
+                // Clear removed or dead swat entities
                 this.squad.removeIf((swat) -> swat.isRemoved() || swat.getState() == STATE_DEAD);
 
                 // Summon squad members
-                if (this.mission != null && this.tickCount - this.lastSquadSummonTick >= CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get()) {
-                    this.lastSquadSummonTick = this.tickCount;
+                this.squadSummonTimer += 1;
+                if (this.mission != null && this.squadSummonTimer >= CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get()) {
+                    this.squadSummonTimer = 0;
 
-                    // Get specialties which are in squat at the moment
+                    // Get specialties which are in squad at the moment
                     List<Specialty> existingSpecs = this.squad.stream().map(SwatEntity::getSpecialty).toList();
                     // Get specialties which are supposed to be in squad
                     List<Specialty> totalSpecs = this.mission.getParticipants();
@@ -263,6 +270,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public void addAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
 
+        nbt.putInt(NBT_KEY_FAILED_GUN_POS_COUNTER, this.failedGunPosCounter);
+
+        nbt.putInt(NBT_KEY_SQUAD_SUMMON_TIMER, this.squadSummonTimer);
+
         nbt.putShort(NBT_KEY_DEAD_BODE_AGE, this.deadBodyAge);
 
         if (this.mission != null) {
@@ -286,9 +297,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     public void readAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
 
+        this.failedGunPosCounter = nbt.getInt(NBT_KEY_FAILED_GUN_POS_COUNTER);
+
+        this.squadSummonTimer = nbt.getInt(NBT_KEY_SQUAD_SUMMON_TIMER);
+
         this.deadBodyAge = nbt.getShort(NBT_KEY_DEAD_BODE_AGE);
 
-        if (nbt.contains("swatMission")) {
+        if (nbt.contains(NBT_KEY_MISSION)) {
             Mission mission = Mission.byName(nbt.getString(NBT_KEY_MISSION));
             if (mission != null) this.mission = mission;
         }
@@ -321,18 +336,20 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     //  specialty is unset (set to Specialty.Commander by default) so is the mission.
     @Override
     protected void registerGoals() {
-        int p = 0;
-        this.goalSelector.addGoal(p++, new FloatGoal(this));
-        this.goalSelector.addGoal(p++, new RetreatGoal(this));
-        // TODO: Use potions
-        this.goalSelector.addGoal(p++, new GunAttackGoal(this));
-        this.goalSelector.addGoal(p++, new GunAttackPosGoal(this));
-        this.goalSelector.addGoal(p++, new LookAtPlayerGoal(this, Player.class, 8.0f));
-        this.goalSelector.addGoal(p++, new RandomLookAroundGoal(this));
-        this.goalSelector.addGoal(p, new WaterAvoidingRandomStrollGoal(this, 1.0));
-        p = 0;
-        this.targetSelector.addGoal(p++, (new HurtByTargetGoal(this).setAlertOthers()));
-        this.targetSelector.addGoal(p, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        this.goalSelector.addGoal(1, new FloatGoal(this));
+        this.goalSelector.addGoal(2, new RetreatGoal(this));
+        this.goalSelector.addGoal(3, new GunAttackGoal(this));
+        this.goalSelector.addGoal(4, new GunAttackPosGoal(this));
+        this.goalSelector.addGoal(5, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0));
+        if (GoalUtils.hasGroundPathNavigation(this)) {
+            ((GroundPathNavigation) this.getNavigation()).setCanOpenDoors(true);
+            this.goalSelector.addGoal(1, new BreakDoorGoal(this, 120, (d) -> true));
+        }
+
+        this.targetSelector.addGoal(1, (new HurtByTargetGoal(this, SwatEntity.class).setAlertOthers()));
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        // TODO: Use potions like how Witch does
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
@@ -541,6 +558,30 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         return this.currentGunAttackRadiusSqr;
     }
 
+    public boolean hasMission() {
+        return this.mission != null;
+    }
+
+    public boolean hasSquad() {
+        return this.squad != null;
+    }
+
+    public void summonSquadNextTick() {
+        this.squadSummonTimer = CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get();
+    }
+
+    public void incFailedGunPosCounter() {
+        this.failedGunPosCounter += 1;
+    }
+
+    public void resetFailedGunPosCounter() {
+        this.failedGunPosCounter = 0;
+    }
+
+    public int getFailedGunPosCounter() {
+        return this.failedGunPosCounter;
+    }
+
     ///////////////////////////////////////////////////////
     // IGunOperator interface implementation begins here //
     ///////////////////////////////////////////////////////
@@ -698,7 +739,6 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     private void taczTick() {
-        if (level().isClientSide) return;
         ReloadState reloadState = this.tacz$reload.tickReloadState();
         this.tacz$aim.tickAimingProgress();
         this.tacz$aim.tickSprint();

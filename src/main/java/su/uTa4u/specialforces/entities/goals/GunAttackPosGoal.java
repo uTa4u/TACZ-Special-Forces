@@ -7,10 +7,12 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
+import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
 import java.util.EnumSet;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public class GunAttackPosGoal extends Goal {
     private final SwatEntity shooter;
@@ -32,12 +34,24 @@ public class GunAttackPosGoal extends Goal {
             this.posToTake = target.position();
             return true;
         } else if (!this.shooter.hasLineOfSight(target)) {
-            Vec3 posToTake = getPosToTake();
-            if (posToTake == null) {
-                return false;
-            } else {
+            Vec3 posToTake = getPosToTake((pos) -> this.hasNavPath(pos) && this.hasLineOfSight(pos));
+            if (posToTake != null) {
                 this.posToTake = posToTake;
                 return true;
+            } else {
+                // If entity spawned in an unlucky spot there is a chance it will never reach the player,
+                // but will take the limits we set for both commander and squad counts.
+                // As a fix we will teleport such "stuck" entities to a position from which they can shoot.
+                // Teleport attempts will not stop until the entity is successfully unstuck.
+                this.shooter.incFailedGunPosCounter();
+                if (this.shooter.getFailedGunPosCounter() >= CommonConfig.SWAT_ENTITY_FAILED_GUN_POS_LIMIT.get()) {
+                    Vec3 tpPos = this.getPosToTake(this::hasLineOfSight);
+                    if (tpPos != null) {
+                        this.shooter.resetFailedGunPosCounter();
+                        this.shooter.setPos(tpPos);
+                    }
+                }
+                return false;
             }
         } else {
             return false;
@@ -60,15 +74,19 @@ public class GunAttackPosGoal extends Goal {
     }
 
     @Nullable
-    private Vec3 getPosToTake() {
+    private Vec3 getPosToTake(Predicate<BlockPos> predicate) {
         BlockPos center = BlockPos.containing(this.shooter.position());
-        //Iterable<BlockPos.MutableBlockPos> posIter = BlockPos.spiralAround(center, );
-        Optional<BlockPos> posOpt = BlockPos.findClosestMatch(center, 8, 8, this::hasLineOfSight);
+        // BlockPos#spiralAround looks interesting, maybe we could try it out
+        Optional<BlockPos> posOpt = BlockPos.findClosestMatch(center, 16, 16, predicate);
         if (posOpt.isEmpty()) {
             return null;
         }
         BlockPos pos = posOpt.get();
         return new Vec3(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    private boolean hasNavPath(BlockPos pos) {
+        return this.shooter.getNavigation().createPath(pos, 1) != null;
     }
 
     private boolean hasLineOfSight(BlockPos pos) {

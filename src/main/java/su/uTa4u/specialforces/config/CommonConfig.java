@@ -9,12 +9,12 @@ import su.uTa4u.specialforces.Mission;
 import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class CommonConfig {
-
     public static final ForgeConfigSpec SPEC = init();
 
     public static ForgeConfigSpec.IntValue OBSERVATION_TICK_COOLDOWN;
@@ -27,12 +27,11 @@ public final class CommonConfig {
     public static ForgeConfigSpec.DoubleValue SWAT_ENTITY_EFFECTIVE_RANGE_MULT;
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN;
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_DEAD_BODY_LIFESPAN;
+    public static ForgeConfigSpec.IntValue SWAT_ENTITY_FAILED_GUN_POS_LIMIT;
 
-    // TODO: Use EnumMap instead
-    public static Map<Mission, ForgeConfigSpec.ConfigValue<List<? extends String>>> MISSION_PARTICIPANTS;
+    public static EnumMap<Mission, ForgeConfigSpec.ConfigValue<List<? extends String>>> MISSION_PARTICIPANTS;
 
-    // TODO: Use EnumMap instead
-    public static Map<Specialty, Map<Attribute, ForgeConfigSpec.DoubleValue>> SPECIALTY_ATTRIBUTES;
+    public static EnumMap<Specialty, Map<Attribute, ForgeConfigSpec.DoubleValue>> SPECIALTY_ATTRIBUTES;
 
     private static ForgeConfigSpec init() {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -90,13 +89,17 @@ public final class CommonConfig {
                 .comment("in ticks (20 ticks = 1 second)")
                 .comment("Default: 6000")
                 .defineInRange("deadBodyLifespan", 6000, 1, Integer.MAX_VALUE);
+        SWAT_ENTITY_FAILED_GUN_POS_LIMIT = builder
+                .comment("Number of failed attempts entity has to do before it is considered as stuck.")
+                .comment("Default: 1800")
+                .defineInRange("failedGunPosLimit", 1800, 1, Integer.MAX_VALUE);
 
         builder.pop();
 
 
         builder.push("Mission");
 
-        MISSION_PARTICIPANTS = new HashMap<>();
+        MISSION_PARTICIPANTS = new EnumMap<>(Mission.class);
         initMission(builder, Mission.SCOUTING, List.of("medic", "scout", "scout", "scout", "scout", "engineer", "spy"));
         initMission(builder, Mission.RESCUE, List.of("medic", "assaulter", "assaulter", "assaulter", "bulldozer"));
         initMission(builder, Mission.RAID, List.of("medic", "assaulter", "assaulter", "assaulter", "assaulter", "bulldozer", "grenadier", "grenadier"));
@@ -109,7 +112,7 @@ public final class CommonConfig {
 
         builder.push("Specialty");
 
-        SPECIALTY_ATTRIBUTES = new HashMap<>();
+        SPECIALTY_ATTRIBUTES = new EnumMap<>(Specialty.class);
         initSpecialty(builder, Specialty.COMMANDER,
                 90,
                 Attributes.FOLLOW_RANGE.getDefaultValue(),
