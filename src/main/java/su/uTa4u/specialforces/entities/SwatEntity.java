@@ -66,6 +66,7 @@ import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
 import su.uTa4u.specialforces.entities.goals.GunAttackPosGoal;
+import su.uTa4u.specialforces.entities.goals.PotionUseGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
 
@@ -96,6 +97,8 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
     // TODO: this should be a percentage value of max health depending on Specialty
     private static final float DOWN_HEALTH_THRESHOLD = 20.0f;
+
+    private MeleeAttackGoal meleeAttackGoal;
 
     private int squadSummonTimer = 0;
     private short deadBodyAge = 0;
@@ -336,12 +339,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     //  specialty is unset (set to Specialty.Commander by default) so is the mission.
     @Override
     protected void registerGoals() {
+        this.meleeAttackGoal = new MeleeAttackGoal(this, 1.0f, true);
+
         this.goalSelector.addGoal(1, new FloatGoal(this));
         this.goalSelector.addGoal(2, new RetreatGoal(this));
-        this.goalSelector.addGoal(3, new GunAttackGoal(this));
-        this.goalSelector.addGoal(4, new GunAttackPosGoal(this));
-        this.goalSelector.addGoal(5, new RandomLookAroundGoal(this));
-        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0));
+        this.goalSelector.addGoal(3, new PotionUseGoal(this));
+        this.goalSelector.addGoal(4, new GunAttackGoal(this));
+        this.goalSelector.addGoal(5, new GunAttackPosGoal(this));
+        this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0));
         if (GoalUtils.hasGroundPathNavigation(this)) {
             ((GroundPathNavigation) this.getNavigation()).setCanOpenDoors(true);
             this.goalSelector.addGoal(1, new BreakDoorGoal(this, 120, (d) -> true));
@@ -350,6 +356,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.targetSelector.addGoal(1, (new HurtByTargetGoal(this, SwatEntity.class).setAlertOthers()));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
         // TODO: Use potions like how Witch does
+    }
+
+    public boolean hasMeleeAttackGoal() {
+        return this.goalSelector.getAvailableGoals().stream()
+                .anyMatch((wrap) -> wrap.getGoal() == this.meleeAttackGoal);
     }
 
     public static AttributeSupplier.Builder createDefaultAttributes() {
@@ -859,6 +870,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         return -1;
     }
 
+    public void setSelected(int index) {
+        this.selected = index;
+    }
+
     private ItemStack getSelectedItem() {
         if (HOTBAR_INDEX_START <= this.selected && this.selected <= HOTBAR_INDEX_END) {
             return this.items.get(this.selected);
@@ -992,6 +1007,16 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             }
         }
         return false;
+    }
+
+    public List<Integer> getIndicesWithItem(Item item) {
+        List<Integer> indices = new ArrayList<>();
+        for (int i = HOTBAR_INDEX_START; i <= INV_INDEX_END; ++i) {
+            if (this.items.get(i).is(item)) {
+                indices.add(i);
+            }
+        }
+        return indices;
     }
 
     // Common code for finding NonNullList (items / armor / offhand) by slot index
