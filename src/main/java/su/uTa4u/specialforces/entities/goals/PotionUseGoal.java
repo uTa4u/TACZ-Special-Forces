@@ -3,7 +3,6 @@ package su.uTa4u.specialforces.entities.goals;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -33,119 +32,21 @@ public class PotionUseGoal extends Goal {
         this.swat = swat;
     }
 
-    // TODO: compress this into a Map<Predicate<SwatEntity>, MobEffect> or smth idk
     @Override
     public boolean canUse() {
         if (this.swat.getState() == SwatEntity.STATE_DEAD) return false;
         List<Integer> indices = this.swat.getIndicesWithItem(Items.POTION);
         if (indices.isEmpty()) return false;
-        if (this.swat.getHealth() < this.swat.getMaxHealth() / 2.0f) {
-            int index = this.findPotionIndex(indices, MobEffects.HEAL);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
+        for (var p : POSSIBLE_EFFECTS.keySet()) {
+            if (!this.swat.hasEffect(POSSIBLE_EFFECTS.get(p)) && p.test(this.swat)) {
+                int index = this.findPotionIndex(indices, POSSIBLE_EFFECTS.get(p));
+                if (index != -1) {
+                    this.potionIndex = index;
+                    return true;
+                }
             }
-        } else if (this.swat.getHealth() < this.swat.getMaxHealth() * 3.0f / 4.0f) {
-            int index = this.findPotionIndex(indices, MobEffects.REGENERATION);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getHealth() == this.swat.getMaxHealth()) {
-            int index = this.findPotionIndex(indices, MobEffects.HEALTH_BOOST);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.isOnFire()) {
-            int index = this.findPotionIndex(indices, MobEffects.FIRE_RESISTANCE);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.level().isNight()) {
-            int index = this.findPotionIndex(indices, MobEffects.NIGHT_VISION);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.isUnderWater()) {
-            int index = this.findPotionIndex(indices, MobEffects.WATER_BREATHING);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getSpecialty() == Specialty.SPY) {
-            int index = this.findPotionIndex(indices, MobEffects.INVISIBILITY);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getSpecialty() == Specialty.BULLDOZER) {
-            int index = this.findPotionIndex(indices, MobEffects.DAMAGE_RESISTANCE);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getSpecialty() == Specialty.SCOUT) {
-            int index = this.findPotionIndex(indices, MobEffects.JUMP);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.hasMeleeAttackGoal()) {
-            int index = this.findPotionIndex(indices, MobEffects.DAMAGE_BOOST);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.fallDistance > 10.0f) {
-            int index = this.findPotionIndex(indices, MobEffects.SLOW_FALLING);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getSpecialty() == Specialty.MEDIC) {
-            int index = this.findPotionIndex(indices, MobEffects.MOVEMENT_SPEED);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else if (this.swat.getSpecialty() == Specialty.ENGINEER) {
-            int index = this.findPotionIndex(indices, MobEffects.DIG_SPEED);
-            if (index == -1) {
-                return false;
-            } else {
-                this.potionIndex = index;
-                return true;
-            }
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
@@ -207,7 +108,7 @@ public class PotionUseGoal extends Goal {
     }
 
     private boolean hasEffect(Potion potion, MobEffect effect) {
-        for (MobEffectInstance e : potion.getEffects()) {
+        for (var e : potion.getEffects()) {
             if (e.getEffect() == effect) {
                 return true;
             }
@@ -218,7 +119,6 @@ public class PotionUseGoal extends Goal {
     static {
         POSSIBLE_EFFECTS.put((swat) -> swat.getHealth() < swat.getMaxHealth() / 2.0f, MobEffects.HEAL);
         POSSIBLE_EFFECTS.put((swat) -> swat.getHealth() < swat.getMaxHealth() * 3.0f / 4.0f, MobEffects.REGENERATION);
-        POSSIBLE_EFFECTS.put((swat) -> swat.getHealth() == swat.getMaxHealth(), MobEffects.HEALTH_BOOST);
         POSSIBLE_EFFECTS.put((swat) -> swat.isOnFire(), MobEffects.FIRE_RESISTANCE);
         POSSIBLE_EFFECTS.put((swat) -> swat.isUnderWater(), MobEffects.WATER_BREATHING);
         POSSIBLE_EFFECTS.put((swat) -> swat.fallDistance > 10.0f, MobEffects.SLOW_FALLING);
@@ -229,5 +129,6 @@ public class PotionUseGoal extends Goal {
         POSSIBLE_EFFECTS.put((swat) -> swat.getSpecialty() == Specialty.SCOUT, MobEffects.JUMP);
         POSSIBLE_EFFECTS.put((swat) -> swat.getSpecialty() == Specialty.MEDIC, MobEffects.MOVEMENT_SPEED);
         POSSIBLE_EFFECTS.put((swat) -> swat.getSpecialty() == Specialty.ENGINEER, MobEffects.DIG_SPEED);
+        POSSIBLE_EFFECTS.put((swat) -> swat.getHealth() == swat.getMaxHealth(), MobEffects.HEALTH_BOOST);
     }
 }
