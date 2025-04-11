@@ -139,11 +139,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         // TODO: give all loottables pool names
         this.generateInventory();
 
-        this.takeNextGun();
-
         this.copySpecialAttributes();
 
         return spawnData;
+    }
+
+    @Override
+    public void onAddedToWorld() {
+        super.onAddedToWorld();
+        this.takeNextGun();
     }
 
     @NotNull
@@ -874,7 +878,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.selected = index;
     }
 
-    private ItemStack getSelectedItem() {
+    public ItemStack getSelectedItem() {
         if (HOTBAR_INDEX_START <= this.selected && this.selected <= HOTBAR_INDEX_END) {
             return this.items.get(this.selected);
         } else {

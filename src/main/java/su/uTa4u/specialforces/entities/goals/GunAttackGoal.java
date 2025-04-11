@@ -29,7 +29,10 @@ public class GunAttackGoal extends Goal {
     @Override
     public boolean canUse() {
         LivingEntity target = this.shooter.getTarget();
-        return target != null && !target.isDeadOrDying();
+        return target != null
+                && !target.isDeadOrDying()
+                && !(this.shooter.distanceToSqr(target) > this.shooter.getGunAttackRadiusSqr())
+                && this.shooter.hasLineOfSight(target);
     }
 
     @Override
@@ -65,7 +68,7 @@ public class GunAttackGoal extends Goal {
         this.computeBulletPitchYaw(targetX, targetY, targetZ);
         ShootResult result = this.shooter.shoot(() -> this.bulletPitch, () -> this.bulletYaw);
         if (result == ShootResult.NO_AMMO) {
-            if (this.shooter.hasAmmoForGun(this.shooter.getMainHandItem())) {
+            if (this.shooter.hasAmmoForGun(this.shooter.getSelectedItem())) {
                 this.shooter.reload();
             } else {
                 this.shooter.takeNextGun();
