@@ -28,6 +28,7 @@ public final class CommonConfig {
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN;
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_DEAD_BODY_LIFESPAN;
     public static ForgeConfigSpec.IntValue SWAT_ENTITY_FAILED_GUN_POS_LIMIT;
+    public static ForgeConfigSpec.IntValue SWAT_ENTITY_HOLD_POSITION_DURATION;
 
     public static EnumMap<Mission, ForgeConfigSpec.ConfigValue<List<? extends String>>> MISSION_PARTICIPANTS;
 
@@ -93,6 +94,11 @@ public final class CommonConfig {
                 .comment("Number of failed attempts entity has to do before it is considered as stuck.")
                 .comment("Default: 1800")
                 .defineInRange("failedGunPosLimit", 1800, 1, Integer.MAX_VALUE);
+        SWAT_ENTITY_HOLD_POSITION_DURATION = builder
+                .comment("Time duration for which the entity is gonna hold it's current position even if it's not optimal.")
+                .comment("Higher values means less tps lag.")
+                .comment("Default: 300")
+                .defineInRange("holdPosDuration", 300, 1, Integer.MAX_VALUE);
 
         builder.pop();
 

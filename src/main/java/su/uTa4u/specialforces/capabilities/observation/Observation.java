@@ -18,7 +18,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.registries.ForgeRegistries;
 import su.uTa4u.specialforces.Mission;
-import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.SwatEntity;
 
@@ -128,7 +127,7 @@ public class Observation implements IObservation {
             if (this.commanders.size() >= CommonConfig.OBSERVATION_SQUAD_COUNT.get()) return;
 
             for (int i = 0; i < CommonConfig.OBSERVATION_SQUAD_COUNT.get(); ++i) {
-                SwatEntity commander = SwatEntity.create(serverLevel, Specialty.COMMANDER, this.swatMission);
+                SwatEntity commander = SwatEntity.commander(serverLevel, this.swatMission);
 
                 // Temporarily set commander's position to player to be able to get a random pos
                 commander.setPos(player.position());

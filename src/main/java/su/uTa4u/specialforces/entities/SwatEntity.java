@@ -9,6 +9,7 @@ import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.item.GunTabType;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IAmmoBox;
+import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.resource.index.CommonGunIndex;
@@ -65,7 +66,7 @@ import su.uTa4u.specialforces.Specialty;
 import su.uTa4u.specialforces.Util;
 import su.uTa4u.specialforces.config.CommonConfig;
 import su.uTa4u.specialforces.entities.goals.GunAttackGoal;
-import su.uTa4u.specialforces.entities.goals.GunAttackPosGoal;
+import su.uTa4u.specialforces.entities.goals.GunPosGoal;
 import su.uTa4u.specialforces.entities.goals.PotionUseGoal;
 import su.uTa4u.specialforces.entities.goals.RetreatGoal;
 import su.uTa4u.specialforces.menus.SwatCorpseMenu;
@@ -78,9 +79,11 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     private static final String NBT_KEY_DEAD_BODE_AGE = "DeadBodyAge";
     private static final String NBT_KEY_MISSION = "Mission";
     private static final String NBT_KEY_SQUAD = "Squad";
+    private static final String NBT_KEY_COMMANDER = "Commander";
     private static final String NBT_KEY_SPECIALTY = "Specialty";
     private static final String NBT_KEY_STATE = "State";
     private static final String NBT_KEY_INVENTORY = "Inventory";
+    private static final String NBT_KEY_SLOT = "Slot";
     private static final String NBT_KEY_SELECTED = "Selected";
     private static final String NBT_KEY_SQUAD_SUMMON_TIMER = "SquadTimer";
     private static final String NBT_KEY_FAILED_GUN_POS_COUNTER = "GunPosCounter";
@@ -111,19 +114,29 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Nullable
     private List<SwatEntity> squad = null;
 
+    // Only non-commanders have this field set to non-null
+    @Nullable
+    private SwatEntity commander = null;
+
     protected SwatEntity(EntityType<SwatEntity> entityType, Level level) {
         super(entityType, level);
     }
 
-    public static SwatEntity create(Level level, Specialty specialty, Mission mission) {
+    // TODO: Make a builder instead of these constructors
+    private static SwatEntity create(Level level, Specialty specialty, Mission mission) {
         SwatEntity entity = new SwatEntity(ModEntities.SWAT_ENTITY.get(), level);
         entity.setSpecialty(specialty);
         entity.mission = mission;
+        return entity;
+    }
+
+    public static SwatEntity commander(Level level, Mission mission) {
+        SwatEntity entity = create(level, Specialty.COMMANDER, mission);
         entity.squad = new ArrayList<>();
         return entity;
     }
 
-    public static SwatEntity create(Level level, Specialty specialty) {
+    public static SwatEntity withSpecialty(Level level, Specialty specialty) {
         return create(level, specialty, null);
     }
 
@@ -185,6 +198,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     }
 
     @Override
+    public boolean hurt(@NotNull DamageSource source, float amount) {
+        // Entities end up killing/heavily damaging each other otherwise
+        if (source.getEntity() instanceof SwatEntity) {
+            return false;
+        }
+        return super.hurt(source, amount);
+    }
+
+    @Override
     protected void actuallyHurt(@NotNull DamageSource damageSource, float damageAmount) {
         float dmg = damageAmount;
         dmg = this.getDamageAfterArmorAbsorb(damageSource, dmg);
@@ -196,7 +218,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             // Swat Entity goes down. It can attack, but can't move.
             // Can heal and be healed, if health goes above the threshold, it goes up.
             this.setState(STATE_DOWN);
-            // TODO: do something to stop it from moving completely
+            // TODO: Do something to actually stop it from moving completely
             // Why is this not enough?
             this.goalSelector.disableControlFlag(Goal.Flag.MOVE);
             // Whatever, this WILL be enough
@@ -210,6 +232,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
                 this.setHealth(1.0f);
                 this.removeFreeWill();
                 this.removeAllEffects();
+                this.setSpeed(0.0f);
                 this.deadBodyAge = 0;
                 // TODO: Maybe remove random items from inventory
                 return;
@@ -260,9 +283,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
 
                     Vec3 pos = this.position();
                     for (Specialty spec : missingSpecs) {
-                        SwatEntity squadMember = SwatEntity.create(serverLevel, spec);
+                        SwatEntity squadMember = SwatEntity.withSpecialty(serverLevel, spec);
                         squadMember.setPos(pos);
                         squadMember.setTarget(target);
+                        squadMember.commander = this;
                         ForgeEventFactory.onFinalizeSpawn(squadMember, serverLevel, serverLevel.getCurrentDifficultyAt(BlockPos.containing(squadMember.position())), MobSpawnType.MOB_SUMMONED, null, null);
                         if (serverLevel.addFreshEntity(squadMember)) {
                             this.squad.add(squadMember);
@@ -276,6 +300,10 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     public void addAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
+
+        nbt.putString(NBT_KEY_SPECIALTY, this.getSpecialty().getName());
+
+        nbt.putByte(NBT_KEY_STATE, this.getState());
 
         nbt.putInt(NBT_KEY_FAILED_GUN_POS_COUNTER, this.failedGunPosCounter);
 
@@ -293,8 +321,9 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             nbt.put(NBT_KEY_SQUAD, squadTag);
         }
 
-        nbt.putString(NBT_KEY_SPECIALTY, this.getSpecialty().getName());
-        nbt.putByte(NBT_KEY_STATE, this.getState());
+        if (this.commander != null) {
+            nbt.put(NBT_KEY_COMMANDER, NbtUtils.createUUID(this.commander.getUUID()));
+        }
 
         nbt.put(NBT_KEY_INVENTORY, this.saveCompartments(new ListTag()));
         nbt.putInt(NBT_KEY_SELECTED, this.selected);
@@ -303,6 +332,13 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     public void readAdditionalSaveData(@NotNull CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
+
+        if (nbt.contains(NBT_KEY_SPECIALTY)) {
+            Specialty spec = Specialty.byName(nbt.getString(NBT_KEY_SPECIALTY));
+            if (spec != null) this.setSpecialty(spec);
+        }
+
+        if (nbt.contains(NBT_KEY_STATE)) this.setState(nbt.getByte(NBT_KEY_STATE));
 
         this.failedGunPosCounter = nbt.getInt(NBT_KEY_FAILED_GUN_POS_COUNTER);
 
@@ -315,24 +351,28 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             if (mission != null) this.mission = mission;
         }
 
-        if (this.squad != null && this.level() instanceof ServerLevel serverLevel) {
-            Tag tag = nbt.get(NBT_KEY_SQUAD);
-            if (tag instanceof ListTag squadTag && !squadTag.isEmpty()) {
-                for (Tag t : squadTag) {
-                    Entity entity = serverLevel.getEntity(NbtUtils.loadUUID(t));
+        if (this.level() instanceof ServerLevel serverLevel) {
+            if (this.squad != null) {
+                Tag tag = nbt.get(NBT_KEY_SQUAD);
+                if (tag instanceof ListTag squadTag && !squadTag.isEmpty()) {
+                    for (Tag t : squadTag) {
+                        Entity entity = serverLevel.getEntity(NbtUtils.loadUUID(t));
+                        if (entity instanceof SwatEntity swatEntity) {
+                            this.squad.add(swatEntity);
+                        }
+                    }
+                }
+            }
+            if (this.getSpecialty() != Specialty.COMMANDER) {
+                Tag tag = nbt.get(NBT_KEY_COMMANDER);
+                if (tag != null) {
+                    Entity entity = serverLevel.getEntity(NbtUtils.loadUUID(tag));
                     if (entity instanceof SwatEntity swatEntity) {
-                        this.squad.add(swatEntity);
+                        this.commander = swatEntity;
                     }
                 }
             }
         }
-
-        if (nbt.contains(NBT_KEY_SPECIALTY)) {
-            Specialty spec = Specialty.byName(nbt.getString(NBT_KEY_SPECIALTY));
-            if (spec != null) this.setSpecialty(spec);
-        }
-
-        if (nbt.contains(NBT_KEY_STATE)) this.setState(nbt.getByte(NBT_KEY_STATE));
 
         this.loadCompartments(nbt.getList(NBT_KEY_INVENTORY, 10));
         this.selected = nbt.getInt(NBT_KEY_SELECTED);
@@ -349,7 +389,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.goalSelector.addGoal(2, new RetreatGoal(this));
         this.goalSelector.addGoal(3, new PotionUseGoal(this));
         this.goalSelector.addGoal(4, new GunAttackGoal(this));
-        this.goalSelector.addGoal(5, new GunAttackPosGoal(this));
+        this.goalSelector.addGoal(5, new GunPosGoal(this));
         this.goalSelector.addGoal(6, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0));
         if (GoalUtils.hasGroundPathNavigation(this)) {
@@ -581,6 +621,15 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         return this.squad != null;
     }
 
+    public Iterable<SwatEntity> getSquad() {
+        return this.squad;
+    }
+
+    @Nullable
+    public SwatEntity getCommander() {
+        return this.commander;
+    }
+
     public void summonSquadNextTick() {
         this.squadSummonTimer = CommonConfig.SWAT_ENTITY_SQUAD_SUMMON_COOLDOWN.get();
     }
@@ -658,6 +707,14 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
     @Override
     public void initialData() {
         this.tacz$data.initialData();
+        this.tacz$data.currentGunItem = () -> {
+            ItemStack itemStack = this.getMainHandItem();
+            if (itemStack.getItem() instanceof IGun) {
+                return itemStack;
+            } else {
+                return null;
+            }
+        };
     }
 
     @Override
@@ -904,7 +961,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             itemStack = this.items.get(index);
             if (!itemStack.isEmpty()) {
                 slot = new CompoundTag();
-                slot.putByte("slot", (byte) index);
+                slot.putByte(NBT_KEY_SLOT, (byte) index);
                 itemStack.save(slot);
                 listTag.add(slot);
             }
@@ -913,7 +970,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             itemStack = this.armor.get(index);
             if (!itemStack.isEmpty()) {
                 slot = new CompoundTag();
-                slot.putByte("slot", (byte) (index + 100));
+                slot.putByte(NBT_KEY_SLOT, (byte) (index + 100));
                 itemStack.save(slot);
                 listTag.add(slot);
             }
@@ -922,7 +979,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
             itemStack = this.offhand.get(index);
             if (!itemStack.isEmpty()) {
                 slot = new CompoundTag();
-                slot.putByte("slot", (byte) (index + 150));
+                slot.putByte(NBT_KEY_SLOT, (byte) (index + 150));
                 itemStack.save(slot);
                 listTag.add(slot);
             }
@@ -937,7 +994,7 @@ public class SwatEntity extends PathfinderMob implements IGunOperator, Container
         this.offhand.clear();
         for (int i = 0; i < listTag.size(); ++i) {
             CompoundTag slot = listTag.getCompound(i);
-            int index = slot.getByte("slot") & 255;
+            int index = slot.getByte(NBT_KEY_SLOT) & 255;
             ItemStack itemStack = ItemStack.of(slot);
             if (!itemStack.isEmpty()) {
                 // 0 <= index is always true
