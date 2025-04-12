@@ -9,8 +9,8 @@ Some features such as different behaviours of agents and different tactics emplo
 As of right now the difference between specialties is their starting gear; difference between missions is specialties and their numbers participating in them.
 
 ### Download
-- [Curseforge]()
-- [Modrinth]()
+- [Curseforge](https://legacy.curseforge.com/minecraft/mc-mods/tacz-special-forces)
+- [Modrinth](https://modrinth.com/mod/tacz-special-forces)
 
 ### Specialties
 - Commander (Summons the squad. Equipped with an assault rifle and a pistol)
