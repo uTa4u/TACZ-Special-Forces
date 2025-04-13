@@ -9,7 +9,7 @@ Some features such as different behaviours of agents and different tactics emplo
 As of right now the difference between specialties is their starting gear; difference between missions is specialties and their numbers participating in them.
 
 ### Download
-- [Curseforge](https://legacy.curseforge.com/minecraft/mc-mods/tacz-special-forces)
+- [Curseforge](https://curseforge.com/minecraft/mc-mods/tacz-special-forces)
 - [Modrinth](https://modrinth.com/mod/tacz-special-forces)
 
 ### Specialties
